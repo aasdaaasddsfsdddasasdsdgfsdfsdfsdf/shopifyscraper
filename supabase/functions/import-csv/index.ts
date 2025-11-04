@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { parse as parseCsv } from 'https://deno.land/std@0.208.0/csv/parse.ts';
 import { pooledMap } from 'https://deno.land/std@0.208.0/async/pool.ts';
 
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 25;
 const CONCURRENCY_LIMIT = 5;
 
 // CsvRow arayüzü (Hangi sütunları KULLANACAĞIMIZI tanımlar)
