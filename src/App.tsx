@@ -185,7 +185,7 @@ const ImageModal = memo(({ imageUrl, onClose }: ImageModalProps) => {
   );
 });
 
-// --- CsvImporter Bileşeni (YENİ MİMARİ) ---
+// --- CsvImporter Bileşeni (YENİ MİMARİ - DÜZELTİLMİŞ) ---
 interface CsvImporterProps {
   onImportStart: () => void;
   disabled: boolean;
@@ -211,14 +211,17 @@ const CsvImporter = memo(({ onImportStart, disabled }: CsvImporterProps) => {
     setIsLoading(true);
     setError(null);
     setSuccess(null);
-    onImportStart(); // App bileşenine yüklemenin başladığını bildir (Grid'i kilitlemek için)
+    onImportStart(); 
 
     try {
       // 1. Dosyayı Storage'a yükle
-      // DİKKAT: Supabase projenizde 'csv-uploads' adında bir Storage Bucket oluşturduğunuzdan emin olun.
       const fileExt = file.name.split('.').pop();
       const fileName = `${crypto.randomUUID()}.${fileExt}`;
-      const filePath = `public/${fileName}`; // 'public' klasörüne atıyoruz (ya da RLS ayarı yapın)
+      
+      // --- DÜZELTME BURADA ---
+      // "public/" öneki kaldırıldı. Dosya direkt kovanın kök dizinine yüklenecek.
+      const filePath = fileName;
+      // --- DÜZELTME SONU ---
 
       const { error: uploadError } = await supabase.storage
         .from('csv-uploads')
@@ -236,14 +239,17 @@ const CsvImporter = memo(({ onImportStart, disabled }: CsvImporterProps) => {
           start_date: today,
           end_date: today,
           processing_date: today,
-          status: 'in_progress', // 'pending' yerine 'in_progress' olarak başlat
+          status: 'in_progress',
           total_records: 0,
-          // 'file_path' gibi ekstra bir sütun ekleyebilirsiniz
         })
         .select('id')
         .single();
       
-      if (jobError) throw new Error(`Job oluşturma hatası: ${jobError.message}`);
+      if (jobError) {
+        // Storage'a yüklenen dosyayı geri sil (hata oluştu)
+        await supabase.storage.from('csv-uploads').remove([filePath]);
+        throw new Error(`Job oluşturma hatası: ${jobError.message}`);
+      }
       if (!jobData) throw new Error("Job ID alınamadı.");
       
       const jobId = jobData.id;
@@ -260,19 +266,19 @@ const CsvImporter = memo(({ onImportStart, disabled }: CsvImporterProps) => {
       if (functionError) {
         // Fonksiyon tetikleme başarısız olursa job'u 'failed' yap
         await supabase.from('scrape_jobs').update({ status: 'failed' }).eq('id', jobId);
+        // Storage'a yüklenen dosyayı geri sil
+        await supabase.storage.from('csv-uploads').remove([filePath]);
         throw new Error(`Fonksiyon tetikleme hatası: ${functionError.message}`);
       }
 
       // 4. Kullanıcıyı bilgilendir
       setSuccess("CSV dosyası alındı. Veri işleme arka planda başladı. Bu sekmeyi kapatabilirsiniz. Grid birazdan otomatik olarak güncellenecektir.");
-      setFile(null); // Dosya seçimini temizle
+      setFile(null); 
 
     } catch (err: any) {
       setError(`İçe aktarma başarısız: ${err.message}`);
     } finally {
       setIsLoading(false);
-      // onImportStart()'ı burada false'a çekmiyoruz, çünkü işlem arka planda devam ediyor.
-      // Grid'i yenilemek için App.tsx'teki 'subscription' kullanılacak.
     }
   };
 
@@ -306,8 +312,6 @@ const CsvImporter = memo(({ onImportStart, disabled }: CsvImporterProps) => {
           Arka Plana Gönder
         </button>
       </div>
-
-      {/* Progress bar kaldırıldı, çünkü işlem artık sunucuda */}
 
       {success && (
         <div className="mt-4 flex items-center gap-2 text-sm text-green-600 p-3 bg-green-50 rounded-lg">
