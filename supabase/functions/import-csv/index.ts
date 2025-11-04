@@ -2,12 +2,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { parse as parseCsv } from 'https://deno.land/std@0.208.0/csv/parse.ts';
 import { pooledMap } from 'https://deno.land/std@0.208.0/async/pool.ts';
 
-// İşlenecek satır sayısı
 const BATCH_SIZE = 50;
-// Aynı anda kaç veritabanı işlemi yapılacak (performans için)
 const CONCURRENCY_LIMIT = 5;
 
-// CsvRow arayüzünü (App.tsx'teki ile aynı) tanımla
+// CsvRow arayüzü (Hangi sütunları KULLANACAĞIMIZI tanımlar)
 interface CsvRow {
   domain: string;
   title: string;
@@ -22,68 +20,62 @@ interface CsvRow {
   app?: string;
   theme?: string;
   currency?: string;
+  // Not: CSV dosyanızda 15 sütun olsa bile, biz sadece bu 13'ünü kullanacağız.
+  // Diğer sütunlar (örn: 'image4', 'image5') zararsızca yok sayılacak.
 }
 
-// Supabase Admin Client (gizli anahtarı kullanır)
-// Not: Fonksiyon ayarlarından 'SUPABASE_SERVICE_ROLE_KEY' environment değişkenini tanımlamalısınız.
 const supabaseAdmin = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '', // <--- DÜZELTME 1 (VITE_ öneki kaldırıldı)
+  Deno.env.get('SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
-// CORS Ayarları
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 Deno.serve(async (req) => {
-  // OPTIONS isteği (tarayıcı kontrolü için)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // --- DÜZELTME: Hata ayıklama için jobId'yi en dışa taşıdık ---
+  let jobId = 'unknown_job';
   try {
-    const { jobId, filePath, batchIndex } = await req.json();
+    const { jobId: reqJobId, filePath, batchIndex } = await req.json();
+    jobId = reqJobId; // jobId'yi global skopta ayarla
 
     if (!jobId || !filePath) {
       throw new Error("Eksik parametre: 'jobId' veya 'filePath' gerekli.");
     }
 
     const startIndex = batchIndex * BATCH_SIZE;
-
     console.log(`[Job ${jobId}] Batch ${batchIndex} (Satır ${startIndex}+) işleniyor...`);
 
-    // 1. CSV dosyasını Storage'dan indir
     const { data: fileData, error: storageError } = await supabaseAdmin.storage
-      .from('csv-uploads') // DİKKAT: 'csv-uploads' adında bir bucket oluşturmalısınız
+      .from('csv-uploads')
       .download(filePath);
 
     if (storageError) throw storageError;
 
-    // 2. Dosya içeriğini oku ve CSV olarak ayrıştır
     const csvText = await fileData.text();
+    
+    // --- DÜZELTME: 'columns' array'i kaldırıldı ---
+    // Artık 'skipFirstRow: true' düzgün çalışacak ve başlıklar
+    // dosyadan dinamik olarak okunacak (15 sütunun tamamı).
     const rows = parseCsv(csvText, {
-      skipFirstRow: true, // Başlık satırını atla
-      columns: [ // App.tsx'teki CsvRow ile eşleşen başlıklar
-        'domain', 'title', 'image1', 'image2', 'image3', 'ciro', 'adlink',
-        'niche', 'product_count', 'trafik', 'app', 'theme', 'currency'
-      ],
-    }) as CsvRow[];
+      skipFirstRow: true, 
+    }) as CsvRow[]; // Tipi CsvRow olarak zorluyoruz
 
-    // 3. Bu batch'e ait satırları al
     const batchRows = rows.slice(startIndex, startIndex + BATCH_SIZE);
 
     if (batchRows.length === 0) {
-      // İşlenecek satır kalmadı, job'u 'completed' yap
       await supabaseAdmin
         .from('scrape_jobs')
         .update({ status: 'completed', total_records: rows.length })
         .eq('id', jobId);
       
       console.log(`[Job ${jobId}] Tamamlandı. Toplam ${rows.length} satır.`);
-      
-      // İşlem bitti, dosyayı Storage'dan sil
       await supabaseAdmin.storage.from('csv-uploads').remove([filePath]);
 
       return new Response(JSON.stringify({ message: `Job ${jobId} tamamlandı.` }), {
@@ -92,8 +84,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 4. Batch'i işle (pooledMap ile performanslı)
+    // 4. Batch'i işle
     const processRow = async (row: CsvRow) => {
+      // Not: 'row' objesi artık CSV'deki 15 sütunu da içeriyor,
+      // ama biz sadece ihtiyacımız olanları (domain, title, vs.) çağırıyoruz.
       if (!row.domain || !row.title) {
         console.warn(`[Job ${jobId}] Satır atlandı (domain/title eksik):`, row.domain);
         return;
@@ -114,17 +108,15 @@ Deno.serve(async (req) => {
           job_id: jobId,
         };
 
-        // Domain'e göre UPSERT (Ekle veya Güncelle)
         const { data: upsertedData, error: upsertError } = await supabaseAdmin
           .from('scraped_data')
-          .upsert(dataToInsertOrUpdate, { onConflict: 'domain' }) // migration'da domain'i UNIQUE yapmıştık
+          .upsert(dataToInsertOrUpdate, { onConflict: 'domain' })
           .select('id')
           .single();
 
         if (upsertError) throw new Error(`scraped_data upsert hatası: ${upsertError.message}`);
         if (!upsertedData) throw new Error('scraped_data ID alınamadı');
 
-        // Product Details'i de Ekle/Güncelle
         const images = [row.image1, row.image2, row.image3].filter(Boolean) as string[];
         const { error: productDetailsError } = await supabaseAdmin
           .from('product_details')
@@ -142,21 +134,17 @@ Deno.serve(async (req) => {
 
       } catch (err) {
         console.error(`[Job ${jobId}] Satır ${row.domain} işlenemedi:`, err.message);
-        // Hata durumunda bile devam et
       }
     };
     
-    // Satırları paralel olarak işle
     for await (const _ of pooledMap(CONCURRENCY_LIMIT, batchRows, processRow)) {
       // İşlemlerin bitmesini bekle
     }
 
     // 5. Bir sonraki batch'i tetikle
     const nextBatchIndex = batchIndex + 1;
-    const functionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/import-csv`; // <--- DÜZELTME 2 (VITE_ öneki kaldırıldı)
+    const functionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/import-csv`;
     
-    // ÖNEMLİ: Yeni fonksiyonu 'await' KULLANMADAN çağırıyoruz (fire-and-forget)
-    // Bu sayede mevcut fonksiyon 60 saniye dolmadan yanıt dönebilir.
     fetch(functionUrl, {
       method: 'POST',
       headers: {
@@ -173,13 +161,11 @@ Deno.serve(async (req) => {
     // 6. Tarayıcıya "işlem devam ediyor" yanıtı dön
     return new Response(JSON.stringify({ message: `Job ${jobId}, Batch ${batchIndex} işlendi. Sonraki batch tetiklendi.` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 202, // 202 Accepted (İşlem kabul edildi, devam ediyor)
+      status: 202,
     });
 
   } catch (error) {
-    // İşlemde genel bir hata olursa Job'u 'failed' yap
-    // (jobId'yi payload'dan okumaya çalış, okuyamazsan 'unknown_job')
-    const jobId = (await req.json().catch(() => ({})))?.jobId || 'unknown_job';
+    // --- DÜZELTME: jobId'yi artık dış skoptan alıyoruz ---
     if (jobId !== 'unknown_job') {
        await supabaseAdmin
         .from('scrape_jobs')
