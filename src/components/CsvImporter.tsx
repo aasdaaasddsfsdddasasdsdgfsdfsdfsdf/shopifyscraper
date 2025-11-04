@@ -10,6 +10,7 @@ interface CsvRow {
   image2?: string;
   image3?: string;
   ciro?: string;
+  
   adlink?: string;
   niche?: string;
   product_count?: string;
