@@ -18,7 +18,6 @@ interface DataTableProps {
   filterStatus: 'all' | 'open' | 'closed';
   setFilterStatus: (value: 'all' | 'open' | 'closed') => void;
   
-  // --- YENİ PROPLAR EKLENDİ ---
   filterCurrency: string;
   setFilterCurrency: (value: string) => void;
   filterLanguage: string;
@@ -41,7 +40,6 @@ export function DataTable({
   setFilterDomain,
   filterStatus,
   setFilterStatus,
-  // --- YENİ PROPLAR DESTRUCTURE EDİLDİ ---
   filterCurrency,
   setFilterCurrency,
   filterLanguage,
@@ -53,7 +51,6 @@ export function DataTable({
   const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
   const [localFilterDomain, setLocalFilterDomain] = useState(filterDomain);
   const [localFilterStatus, setLocalFilterStatus] = useState(filterStatus);
-  // --- YENİ LOKAL STATE'LER ---
   const [localFilterCurrency, setLocalFilterCurrency] = useState(filterCurrency);
   const [localFilterLanguage, setLocalFilterLanguage] = useState(filterLanguage);
   const [localFilterTitle, setLocalFilterTitle] = useState(filterTitle);
@@ -63,35 +60,26 @@ export function DataTable({
     setSearchTerm(localSearchTerm);
     setFilterDomain(localFilterDomain);
     setFilterStatus(localFilterStatus);
-    // --- YENİ SETTER'LAR ÇAĞIRILDI ---
     setFilterCurrency(localFilterCurrency);
     setFilterLanguage(localFilterLanguage);
     setFilterTitle(localFilterTitle);
   };
 
-  // --- GÜNCELLENMİŞ handleFilterClear ---
   const handleFilterClear = () => {
-    // Parent state'in (prop'ların) kirli olup olmadığını kontrol et
     const isParentStateDirty = searchTerm || filterDomain || filterStatus !== 'all' ||
-      // --- YENİ KONTROLLER ---
       filterCurrency || filterLanguage || filterTitle;
 
-    // Lokal state'i (input'ları) her zaman temizle
     setLocalSearchTerm('');
     setLocalFilterDomain('');
     setLocalFilterStatus('all');
-    // --- YENİ LOKAL STATE'LERİ TEMİZLE ---
     setLocalFilterCurrency('');
     setLocalFilterLanguage('');
     setLocalFilterTitle('');
 
-    // SADECE parent state kirliyse (yani bir filtre uygulanmışsa)
-    // parent state'i güncelleyerek veritabanı sorgusunu tetikle.
     if (isParentStateDirty) {
       setSearchTerm('');
       setFilterDomain('');
       setFilterStatus('all');
-      // --- YENİ PARENT STATE'LERİ TEMİZLE ---
       setFilterCurrency('');
       setFilterLanguage('');
       setFilterTitle('');
@@ -102,11 +90,10 @@ export function DataTable({
     setLocalSearchTerm(searchTerm);
     setLocalFilterDomain(filterDomain);
     setLocalFilterStatus(filterStatus);
-    // --- YENİ STATE'LERİ EŞİTLE ---
     setLocalFilterCurrency(filterCurrency);
     setLocalFilterLanguage(filterLanguage);
     setLocalFilterTitle(filterTitle);
-  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle]); // Yeni bağımlılıklar eklendi
+  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle]); 
 
 
   if (isLoading) {
@@ -118,8 +105,6 @@ export function DataTable({
     );
   }
 
-  // "No data" durumunda bile filtreleme çubuğunun görünmesi için
-  // bu bloğu `return` içindeki ana `div`'in içine taşıdık.
   const filterControls = (
     <div className="p-4 border-b border-gray-200">
       <div className="flex justify-between items-center mb-4">
@@ -146,7 +131,6 @@ export function DataTable({
         </div>
       </div>
 
-      {/* --- GÜNCELLENMİŞ GRİD YAPISI (4 SÜTUNLU) --- */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="relative md:col-span-1">
           <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
@@ -160,7 +144,6 @@ export function DataTable({
           />
         </div>
 
-        {/* --- YENİ INPUT: Product Title --- */}
         <input
           type="text"
           placeholder="Filtrele: Ürün Başlığı..."
@@ -177,7 +160,6 @@ export function DataTable({
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
         
-        {/* --- YENİ INPUT: Language --- */}
         <input
           type="text"
           placeholder="Filtrele: Dil..."
@@ -186,7 +168,6 @@ export function DataTable({
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
 
-        {/* --- YENİ INPUT: Currency --- */}
         <input
           type="text"
           placeholder="Filtrele: Para Birimi..."
@@ -213,7 +194,6 @@ export function DataTable({
           Filtrele
         </button>
 
-        {/* --- GÜNCELLENMİŞ GÖRÜNÜRLÜK KONTROLÜ --- */}
         {(localSearchTerm || localFilterDomain || localFilterStatus !== 'all' ||
           localFilterCurrency || localFilterLanguage || localFilterTitle
          ) && (
@@ -228,17 +208,14 @@ export function DataTable({
     </div>
   );
   
-  // "No data" durumu
   if (!isLoading && totalRecords === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        {/* Filtre çubuğu "No data" durumunda bile görünecek */}
         {filterControls}
         <div className="p-8 text-center">
           <p className="text-gray-500">
-            {/* Mesajı ayırt etmek için güncelledik */}
             {searchTerm || filterDomain || filterStatus !== 'all' ||
-             filterCurrency || filterLanguage || filterTitle // Yeni kontroller eklendi
+             filterCurrency || filterLanguage || filterTitle
               ? 'Filtrelerinizle eşleşen kayıt bulunamadı.'
               : 'No data available. Start a scraping job to see results.'
             }
@@ -248,7 +225,7 @@ export function DataTable({
     );
   }
 
-  // Veri olan durum
+  // --- TBODY GÜNCELLENDİ (row.products -> row.product_details) ---
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       {filterControls}
@@ -281,6 +258,10 @@ export function DataTable({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
+            {/* Eğer row.product_details null gelirse (JOIN hatası veya
+              eski veri nedeniyle), hata almamak için '?' (optional chaining)
+              ekliyoruz.
+            */}
             {data.map((row) => (
               <tr key={row.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -304,21 +285,21 @@ export function DataTable({
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap text-sm">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    row.products.status === 'open'
+                    row.product_details?.status === 'open'
                       ? 'bg-green-100 text-green-800'
                       : 'bg-red-100 text-red-800'
                   }`}>
-                    {row.products.status.toUpperCase()}
+                    {row.product_details?.status?.toUpperCase() || 'BİLİNMİYOR'}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-sm text-gray-900 max-w-xs truncate" title={row.products.title}>
-                  {row.products.title || '-'}
+                <td className="px-4 py-4 text-sm text-gray-900 max-w-xs truncate" title={row.product_details?.title}>
+                  {row.product_details?.title || '-'}
                 </td>
                 
                 <td className="px-4 py-4 py-3">
-                  {row.products.status === 'open' && row.products.images.length > 0 ? (
+                  {row.product_details?.status === 'open' && row.product_details?.images?.length > 0 ? (
                     <div className="flex gap-2">
-                      {row.products.images.map((img, idx) => (
+                      {row.product_details.images.map((img, idx) => (
                         <div key={idx} className="relative group">
                           <a
                             href={img}
@@ -346,7 +327,7 @@ export function DataTable({
                     </div>
                   ) : (
                     <span className="text-gray-500 text-sm">
-                      {row.products.status === 'closed' ? 'KAPALI' : 'No images'}
+                      {row.product_details?.status === 'closed' ? 'KAPALI' : 'No images'}
                     </span>
                   )}
                 </td>
