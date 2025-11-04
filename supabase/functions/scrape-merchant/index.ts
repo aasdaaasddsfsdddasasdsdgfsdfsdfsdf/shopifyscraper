@@ -25,7 +25,9 @@ function cleanDomain(raw: string): string {
   return s.toLowerCase();
 }
 
+// --- ProductData ARAYÜZÜ GÜNCELLENDİ ---
 interface ProductData {
+  title: string;
   images: string[];
   status: 'open' | 'closed';
   error?: string;
@@ -39,6 +41,7 @@ interface ScrapedRecord {
   products: ProductData;
 }
 
+// --- fetchProductImages GÜNCELLENDİ (title eklendi) ---
 async function fetchProductImages(domain: string): Promise<ProductData> {
   try {
     const url = `https://${domain}/products.json?limit=10`;
@@ -50,6 +53,7 @@ async function fetchProductImages(domain: string): Promise<ProductData> {
 
     if (!response.ok) {
       return {
+        title: '',
         images: [],
         status: 'closed',
         error: `HTTP ${response.status}`,
@@ -58,9 +62,14 @@ async function fetchProductImages(domain: string): Promise<ProductData> {
 
     const data = await response.json();
     const images: string[] = [];
+    let title = '';
 
     if (data.products && Array.isArray(data.products) && data.products.length > 0) {
       const firstProduct = data.products[0];
+      
+      // Ürün başlığını al
+      title = firstProduct.title || '';
+
       if (firstProduct.images && Array.isArray(firstProduct.images)) {
         for (let i = 0; i < Math.min(3, firstProduct.images.length); i++) {
           const img = firstProduct.images[i];
@@ -72,11 +81,13 @@ async function fetchProductImages(domain: string): Promise<ProductData> {
     }
 
     return {
+      title, // Title eklendi
       images,
       status: 'open',
     };
   } catch (error) {
     return {
+      title: '',
       images: [],
       status: 'closed',
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -139,6 +150,7 @@ async function scrapeDate(dateStr: string): Promise<ScrapedRecord[]> {
 
       seenDomains.add(domain);
 
+      // Bu fonksiyon artık 'title' içeren productData döndürecek
       const productData = await fetchProductImages(domain);
 
       records.push({
