@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import Papa from 'papaparse';
-// --- DÜZELTME: Import yolu düzeltildi ---
 import { supabase } from '../lib/supabase';
 import { Loader2, UploadCloud, CheckCircle, XCircle } from 'lucide-react';
 
@@ -67,46 +66,91 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
           }
 
           try {
-            // 1. ADIM: `scraped_data`'ya ekle/güncelle (UPSERT)
-            const { data: scrapedData, error: scrapedDataError } = await supabase
+            // --- YENİ ÇÖZÜM BAŞLANGICI (SELECT-THEN-UPDATE/INSERT) ---
+
+            let scrapedDataId: string | null = null;
+            
+            // 1. ADIM: Bu domain'in var olup olmadığını KONTROL ET
+            const { data: existingData, error: selectError } = await supabase
               .from('scraped_data')
-              .upsert(
-                {
-                  domain: row.domain,
-                  ciro: row.ciro || null,
-                  adlink: row.adlink || null,
-                  niche: row.niche || null,
-                  product_count: parseInt(row.product_count || '0') || null,
-                  trafik: row.trafik || null,
-                  app: row.app || null,
-                  theme: row.theme || null,
-                  date: new Date().toISOString().split('T')[0],
-                  job_id: 'csv-import',
-                },
-                { onConflict: 'domain' }
-              )
               .select('id')
-              .single();
+              .eq('domain', row.domain)
+              .maybeSingle(); // ya bir tane bulur ya da null döner
+            
+            if (selectError) {
+              throw new Error(`scraped_data ARAMA Hatası: ${selectError.message}`);
+            }
 
-            if (scrapedDataError) throw new Error(`scraped_data Hatası: ${scrapedDataError.message}`);
-            if (!scrapedData) throw new Error('scraped_data ID alınamadı.');
+            // CSV'den gelen veriyi hazırla
+            const dataToInsertOrUpdate = {
+              domain: row.domain,
+              ciro: row.ciro || null,
+              adlink: row.adlink || null,
+              niche: row.niche || null,
+              product_count: parseInt(row.product_count || '0') || null,
+              trafik: row.trafik || null,
+              app: row.app || null,
+              theme: row.theme || null,
+              date: new Date().toISOString().split('T')[0],
+              job_id: 'csv-import',
+            };
 
-            // 2. ADIM: `product_details`'e ekle/güncelle (UPSERT)
+            // 2. ADIM: Duruma göre GÜNCELLE veya EKLE
+            if (existingData) {
+              // 2.A: KAYIT VAR -> Güncelle (UPDATE)
+              scrapedDataId = existingData.id;
+              const { error: updateError } = await supabase
+                .from('scraped_data')
+                .update(dataToInsertOrUpdate)
+                .eq('id', scrapedDataId);
+              
+              if (updateError) {
+                throw new Error(`scraped_data GÜNCELLEME Hatası: ${updateError.message}`);
+              }
+              console.log(`[Satır ${i + 1}] Güncellendi: ${row.domain}`);
+
+            } else {
+              // 2.B: KAYIT YOK -> Ekle (INSERT)
+              const { data: newData, error: insertError } = await supabase
+                .from('scraped_data')
+                .insert(dataToInsertOrUpdate)
+                .select('id') // Yeni kaydın ID'sini al
+                .single();
+
+              if (insertError) {
+                throw new Error(`scraped_data EKLEME Hatası: ${insertError.message}`);
+              }
+              if (!newData) {
+                throw new Error('scraped_data eklendi ancak ID geri dönmedi.');
+              }
+              scrapedDataId = newData.id;
+              console.log(`[Satır ${i + 1}] Eklendi: ${row.domain}`);
+            }
+
+            // --- YENİ ÇÖZÜM SONU ---
+            
+            // 3. ADIM: `product_details`'i EKLE/GÜNCELLE (UPSERT)
+            // Bu (upsert) çalışmalıdır, çünkü `scraped_data_id` 1'e 1 ve benzersiz (UNIQUE)
+            // olarak SQL migrasyonunda (20251105103000) ayarlanmıştı.
             const images = [row.image1, row.image2, row.image3].filter(Boolean) as string[];
 
             const { error: productDetailsError } = await supabase
               .from('product_details')
               .upsert(
                 {
-                  scraped_data_id: scrapedData.id,
+                  scraped_data_id: scrapedDataId,
                   title: row.title,
                   images: images,
                   status: 'open',
                 },
-                { onConflict: 'scraped_data_id' }
+                { onConflict: 'scraped_data_id' } // Bu `onConflict` çalışmalı.
               );
             
-            if (productDetailsError) throw new Error(`product_details Hatası: ${productDetailsError.message}`);
+            if (productDetailsError) {
+              // Eğer bu da `no unique constraint` hatası verirse,
+              // '20251105103000_normalize_products.sql' migrasyonu da çalışmamış demektir.
+              throw new Error(`product_details Hatası: ${productDetailsError.message}`);
+            }
 
           } catch (err: any) {
             setError(`[Satır ${i + 1} - ${row.domain}] Hata: ${err.message}. İşlem durduruldu.`);
@@ -196,3 +240,4 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
     </div>
   );
 }
+
