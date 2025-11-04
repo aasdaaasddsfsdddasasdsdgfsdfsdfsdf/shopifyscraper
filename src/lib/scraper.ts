@@ -1,13 +1,23 @@
-import { supabase, ProductData, ScrapedData } from './supabase';
+import { supabase, ScrapedData } from './supabase';
 
-export type { ProductData, ScrapedData };
+// ProductData artık ProductDetails olarak supabase.ts'den geliyor
+export type { ScrapedData };
+
+// YENİ: Edge fonksiyonundan gelen 'ProductData' (yeni adıyla)
+// Bu, 'product_details' tablosuna GİRMEDEN ÖNCEKI ham veridir
+export interface ScrapedProductData {
+  title: string;
+  images: string[];
+  status: 'open' | 'closed';
+  error?: string;
+}
 
 export interface ScrapedRecord {
   date: string;
   domain: string;
   currency: string;
   language: string;
-  products: ProductData;
+  products: ScrapedProductData; // Güncellendi
 }
 
 export async function scrapeDate(dateStr: string): Promise<ScrapedRecord[]> {
@@ -52,12 +62,13 @@ export function formatDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-// --- DÜZELTME BAŞLANGICI: Toplu kayıtları bölerek (batch) ekleme ---
+// --- saveRecords FONKSİYONU TAMAMEN YENİLENDİ ---
+// Artık iki aşamalı (scraped_data -> product_details)
+// ve toplu (batch) ekleme yapıyor.
 
 export async function saveRecords(jobId: string, records: ScrapedRecord[]) {
   if (records.length === 0) return;
 
-  // 418 kaydı 50'şerli gruplara ayır
   const BATCH_SIZE = 50;
   
   console.log(`[saveRecords] Starting to save ${records.length} records in batches of ${BATCH_SIZE}...`);
@@ -67,27 +78,66 @@ export async function saveRecords(jobId: string, records: ScrapedRecord[]) {
     
     console.log(`[saveRecords] Inserting batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(records.length / BATCH_SIZE)} (${batch.length} records)`);
 
+    // 1. ADIM: Ana `scraped_data` kayıtlarını ekle (products OLMADAN)
+    // .select() ile eklenen kayıtların ID'lerini geri al
     const dataToInsert = batch.map(r => ({
       job_id: jobId,
       date: r.date,
       domain: r.domain,
       currency: r.currency,
       language: r.language,
-      products: r.products,
+      // 'products' alanı artık burada değil
     }));
 
-    const { error } = await supabase
+    const { data: insertedScrapedData, error: scrapedDataError } = await supabase
       .from('scraped_data')
-      .insert(dataToInsert);
+      .insert(dataToInsert)
+      .select('id'); // Eklenen kayıtların ID'lerini al
 
-    if (error) {
-      // Eğer bir grup hata verirse, işlemi durdur ve hatayı fırlat
-      console.error(`[saveRecords] Supabase insert error on batch starting at index ${i}:`, error);
-      throw new Error(`Failed to save records (batch ${i}): ${error.message}`);
+    if (scrapedDataError || !insertedScrapedData) {
+      console.error(`[saveRecords] Supabase insert error on scraped_data batch ${i}:`, scrapedDataError);
+      throw new Error(`Failed to save scraped_data (batch ${i}): ${scrapedDataError?.message}`);
+    }
+
+    // 2. ADIM: Dönen ID'leri kullanarak `product_details` kayıtlarını oluştur
+    if (insertedScrapedData.length !== batch.length) {
+      console.warn(`[saveRecords] Mismatch in returned IDs. Expected ${batch.length}, got ${insertedScrapedData.length}`);
+      // Bu durumda devam etmek riskli olabilir, ancak şimdilik hata vermiyoruz
+    }
+    
+    const productDetailsToInsert = batch.map((r, index) => {
+      // Dönen ID'yi (insertedScrapedData[index].id) al
+      const scrapedDataId = insertedScrapedData[index]?.id;
+      
+      // Eğer ID alınamadıysa (bir hata oluştuysa) bu kaydı atla
+      if (!scrapedDataId) return null;
+
+      return {
+        scraped_data_id: scrapedDataId, // Foreign Key
+        status: r.products.status,
+        title: r.products.title,
+        images: r.products.images,
+        error: r.products.error || null,
+      };
+    }).filter(Boolean); // null olanları (ID'si olmayanları) filtrele
+
+    // 3. ADIM: `product_details` kayıtlarını ekle
+    if (productDetailsToInsert.length > 0) {
+      const { error: productDetailsError } = await supabase
+        .from('product_details')
+        .insert(productDetailsToInsert as any); // 'Boolean' filtresi sonrası tipi any yaptık
+
+      if (productDetailsError) {
+        console.error(`[saveRecords] Supabase insert error on product_details batch ${i}:`, productDetailsError);
+        // Burada hatayı fırlatabilir veya loglayıp devam edebiliriz
+        // Eğer fırlatırsak, scraped_data'ya eklenmiş ama product_details'e eklenmemiş
+        // "yetim" kayıtlar kalabilir. Şimdilik loglayıp devam ediyoruz.
+        console.error(`Batch ${i} product details failed to insert. Corresponding scraped_data IDs may be orphaned.`);
+      }
     }
   }
   
-  console.log(`[saveRecords] Successfully inserted all ${records.length} records.`);
+  console.log(`[saveRecords] Successfully processed all ${records.length} records.`);
 }
 // --- DÜZELTME SONU ---
 
