@@ -146,7 +146,6 @@ function App() {
 
   // resumeScraping (Değişiklik yok)
   const resumeScraping = async (job: ScrapeJob) => {
-    // ... (kod aynı)
     try {
       const startDate = new Date(job.processing_date);
       const today = new Date(getTodayDateStr());
@@ -194,12 +193,10 @@ function App() {
       setIsScrapingActive(false);
       setCurrentProgress('');
     }
-    // ... (kod aynı)
   };
 
   // handleStartScraping (Değişiklik yok)
   const handleStartScraping = async (startDate: string, endDate: string) => {
-    // ... (kod aynı)
     try {
       setIsScrapingActive(true);
       const today = getTodayDateStr();
@@ -267,12 +264,10 @@ function App() {
       setIsScrapingActive(false);
       setCurrentProgress('');
     }
-    // ... (kod aynı)
   };
   
   // handleContinueFromLast (Değişiklik yok)
   const handleContinueFromLast = async () => {
-    // ... (kod aynı)
     if (!currentJob) return;
     try {
       setIsScrapingActive(true);
@@ -295,7 +290,6 @@ function App() {
       console.error('Error continuing scraping:', error);
       setIsScrapingActive(false);
     }
-    // ... (kod aynı)
   };
 
   const handlePageChange = (page: number) => {
