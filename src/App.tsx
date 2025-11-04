@@ -13,87 +13,71 @@ function App() {
   const [isScrapingActive, setIsScrapingActive] = useState(false);
   const [currentProgress, setCurrentProgress] = useState('');
   
+  // Data ve Filtre State'leri
   const [data, setData] = useState<ScrapedData[]>([]);
   const [allData, setAllData] = useState<ScrapedData[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
 
+  // Filtre state'leri DataTable'dan buraya taşındı
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDomain, setFilterDomain] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
-  const loadGridData = useCallback(async (page: number) => {
-    setIsLoading(true);
+  // Veri yükleme fonksiyonu (DİNAMİK FİLTRELİ)
+  const loadJobData = useCallback(async (jobId: string, page: number) => {
     const offset = (page - 1) * ITEMS_PER_PAGE;
 
-    try {
-      let pageQuery = supabase
-        .from('scraped_data')
-        .select('*', { count: 'exact' });
+    // --- 1. Filtrelenmiş ve Sayfalanmış Veri Sorgusu ---
+    let pageQuery = supabase
+      .from('scraped_data')
+      .select('*', { count: 'exact' })
+      .eq('job_id', jobId);
 
-      if (filterDomain) {
-        pageQuery = pageQuery.ilike('domain', `%${filterDomain}%`);
-      }
-      if (filterStatus !== 'all') {
-        pageQuery = pageQuery.eq('products->>status', filterStatus);
-      }
-      if (searchTerm) {
-        // --- DÜZELTME BURADA ---
-        // products->>title alanı olmadığı için sorgudan kaldırıldı.
-        const searchConditions = `domain.ilike.%${searchTerm}%,date::text.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
-        pageQuery = pageQuery.or(searchConditions);
-      }
+    // Filtreleri dinamik olarak uygula
+    if (filterDomain) {
+      pageQuery = pageQuery.ilike('domain', `%${filterDomain}%`);
+    }
+    if (filterStatus !== 'all') {
+      // products JSON kolonundaki 'status' anahtarına göre filtrele
+      pageQuery = pageQuery.eq('products->>status', filterStatus);
+    }
+    if (searchTerm) {
+      // Birden fazla alanda arama yapmak için .or() kullan
+      const searchConditions = `domain.ilike.%${searchTerm}%,products->>title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
+      pageQuery = pageQuery.or(searchConditions);
+    }
 
-      const { data: pageData, error: dataError, count } = await pageQuery
-        .order('date', { ascending: false })
-        .range(offset, offset + ITEMS_PER_PAGE - 1);
+    // Sayfalama ve sıralamayı uygula
+    const { data: pageData, error: dataError, count } = await pageQuery
+      .order('date', { ascending: false })
+      .range(offset, offset + ITEMS_PER_PAGE - 1);
 
-      if (dataError) throw dataError;
-
-      setData(pageData || []);
-      setTotalRecords(count || 0);
-
-      let allDataQuery = supabase
-        .from('scraped_data')
-        .select('*');
-
-      if (filterDomain) {
-        allDataQuery = allDataQuery.ilike('domain', `%${filterDomain}%`);
-      }
-      if (filterStatus !== 'all') {
-        allDataQuery = allDataQuery.eq('products->>status', filterStatus);
-      }
-      if (searchTerm) {
-        // Düzeltme burada da uygulanıyor
-        const searchConditions = `domain.ilike.%${searchTerm}%,date::text.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
-        allDataQuery = allDataQuery.or(searchConditions);
-      }
-
-      const { data: fullData, error: allDataError } = await allDataQuery.order('date', { ascending: false });
-
-      if (allDataError) throw allDataError;
-      
-      setAllData(fullData || []);
-
-    } catch (error) {
-      console.error('Error loading data:', error);
+    if (dataError) {
+      console.error('Error loading data:', dataError);
       setData([]);
       setTotalRecords(0);
-      setAllData([]);
-    } finally {
-      setIsLoading(false);
+    } else {
+      setData(pageData || []);
+      setTotalRecords(count || 0);
     }
-  }, [searchTerm, filterDomain, filterStatus]);
 
-  // Kalan kod (loadLatestJob, useEffects, resumeScraping, handle... fonksiyonları)
-  // bir önceki adımdaki gibi aynı kalabilir. Hiçbir değişiklik gerekmez.
+    // --- 2. Dışa Aktarım için Tüm Veri Sorgusu (filtresiz) ---
+    // Bu, export işlevinin mevcut haliyle çalışmasını sağlar
+    const { data: fullData } = await supabase
+      .from('scraped_data')
+      .select('*')
+      .eq('job_id', jobId)
+      .order('date', { ascending: false });
 
-  // ... (App.tsx dosyasının geri kalanı değişmeden kalır) ...
+    setAllData(fullData || []);
+
+  }, [searchTerm, filterDomain, filterStatus]); // Filtreler değiştiğinde bu fonksiyon yeniden oluşur
+
+  // Sadece en son işi yükler (veri yüklemez)
   const loadLatestJob = useCallback(async (jobToResume?: ScrapeJob) => {
-    // ... (değişiklik yok)
     const { data: jobs, error } = await supabase
       .from('scrape_jobs')
       .select('*')
@@ -109,10 +93,11 @@ function App() {
     const jobToLoad = jobToResume || jobs;
 
     if (jobToLoad) {
-      setCurrentJob(jobToLoad);
+      setCurrentJob(jobToLoad); // Bu, veri yükleme useEffect'ini tetikler
 
       if (jobToLoad.status === 'in_progress') {
         setIsScrapingActive(true);
+        // resumeScraping'i doğrudan çağırmak yerine jobToResume kontrolü yap
         if (jobToResume) {
           resumeScraping(jobToResume);
         } else if (jobs && jobs.status === 'in_progress') {
@@ -120,34 +105,35 @@ function App() {
         }
       }
     }
-  }, []); // resumeScraping bağımlılığı kaldırıldı
+  }, []); // resumeScraping'i bağımlılıktan çıkarabiliriz, çünkü o anlık çağrılıyor
 
+  // Sadece component mount edildiğinde en son işi bul
   useEffect(() => {
     loadLatestJob();
-    loadGridData(1);
-  }, []); // Sadece mount'ta
+  }, []); // Sadece mount'ta çalışır
 
+  // Filtreler değiştiğinde 1. sayfaya dön
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
   }, [searchTerm, filterDomain, filterStatus]);
 
+  // Veri yükleme için ana useEffect
+  // currentJob, currentPage veya loadJobData (filtreler yüzünden) değiştiğinde çalışır
   useEffect(() => {
-    if (!isLoading) { // İlk yüklemeyi (mount) tekrar tetiklememek için
-      loadGridData(currentPage);
+    if (currentJob) {
+      loadJobData(currentJob.id, currentPage);
     }
-  }, [currentPage, loadGridData]); // loadGridData filtreler değişince değişir
+  }, [currentJob, currentPage, loadJobData]);
 
 
   const getTodayDateStr = (): string => {
-    // ... (değişiklik yok)
     const today = new Date();
     return formatDate(today);
   };
 
   const resumeScraping = async (job: ScrapeJob) => {
-    // ... (değişiklik yok)
     try {
       const startDate = new Date(job.processing_date);
       const today = new Date(getTodayDateStr());
@@ -181,11 +167,12 @@ function App() {
           .maybeSingle();
 
         if (updatedJob) {
-          setCurrentJob(updatedJob);
+          setCurrentJob(updatedJob); // Bu, useEffect'i tetikleyerek veriyi yeniden yükler
         }
         
-        await loadGridData(currentPage);
-
+        // loadJobData'yı manuel çağırmaya gerek yok,
+        // setCurrentJob ve useEffect halledecek
+        
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
@@ -200,7 +187,6 @@ function App() {
   };
 
   const handleStartScraping = async (startDate: string, endDate: string) => {
-    // ... (değişiklik yok)
     try {
       setIsScrapingActive(true);
 
@@ -223,12 +209,8 @@ function App() {
         throw new Error('Failed to create job');
       }
 
-      setCurrentJob(newJob);
+      setCurrentJob(newJob); // Veri yükleme useEffect'ini tetikler
       setCurrentPage(1);
-      
-      setSearchTerm('');
-      setFilterDomain('');
-      setFilterStatus('all');
 
       const start = new Date(startDate);
       const end = new Date(finalEndDate);
@@ -264,11 +246,8 @@ function App() {
           setCurrentJob(updatedJob);
         }
         
-        if (currentPage === 1) {
-          await loadGridData(1);
-        } else {
-          setCurrentPage(1); // Bu, useEffect'i tetikler
-        }
+        // Manuel veri yüklemesi yerine state güncellemesine güven
+        // await loadJobData(newJob.id, 1); 
 
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -283,7 +262,6 @@ function App() {
   };
 
   const handleContinueFromLast = async () => {
-    // ... (değişiklik yok)
     if (!currentJob) return;
 
     try {
@@ -305,6 +283,7 @@ function App() {
         throw new Error('Failed to update job');
       }
 
+      // Sadece job'ı set et, resumeScraping'i loadLatestJob'un yapmasına izin ver
       loadLatestJob(updatedJob);
 
     } catch (error) {
@@ -315,6 +294,7 @@ function App() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+    // useEffect [currentPage] değiştiği için veriyi otomatik yükleyecektir
   };
 
   return (
@@ -359,7 +339,7 @@ function App() {
           totalRecords={totalRecords}
           onPageChange={handlePageChange}
           allData={allData}
-          isLoading={isLoading}
+          // Filtre state'lerini ve setter'ları prop olarak yolla
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           filterDomain={filterDomain}
