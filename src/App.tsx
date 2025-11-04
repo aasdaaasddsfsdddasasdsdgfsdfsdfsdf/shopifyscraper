@@ -4,18 +4,24 @@ import { JobProgress } from './components/JobProgress';
 import { DataTable } from './components/DataTable';
 import { supabase, ScrapeJob, ScrapedData } from './lib/supabase';
 import { scrapeDate, addDays, formatDate, saveRecords, updateJobProgress } from './lib/scraper';
-import { Database } from 'lucide-react';
+import { Database, UserCheck } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 50;
+
+// Kullanıcı listesi
+const REVIEWERS = ['Efkan', 'Mert', 'Furkan'];
 
 function App() {
   const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
   const [isScrapingActive, setIsScrapingActive] = useState(false);
   const [currentProgress, setCurrentProgress] = useState('');
   
+  // --- YENİ STATE: İnceleyen Kişi ---
+  const [currentUser, setCurrentUser] = useState('');
+  
   // Data ve Filtre State'leri
   const [data, setData] = useState<ScrapedData[]>([]);
-  const [allData, setAllData] = useState<ScrapedData[]>([]); // Dışa aktarım için
+  const [allData, setAllData] = useState<ScrapedData[]>([]); 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
@@ -26,40 +32,33 @@ function App() {
   const [filterCurrency, setFilterCurrency] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterTitle, setFilterTitle] = useState('');
+  // --- YENİ FİLTRE: "Liselensin mi?" ---
+  const [filterListedurum, setFilterListedurum] = useState<'all' | 'true' | 'false'>('all');
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
-  // --- loadGridData GÜNCELLENDİ (JOIN sorgusu ve filtreler) ---
+  // --- loadGridData GÜNCELLENDİ (listedurum filtresi eklendi) ---
   const loadGridData = useCallback(async (page: number) => {
     const offset = (page - 1) * ITEMS_PER_PAGE;
 
-    // --- 1. Filtrelenmiş ve Sayfalanmış Veri Sorgusu (TÜM VERİLER) ---
     let pageQuery = supabase
       .from('scraped_data')
-      // 'product_details(*)' Supabase'in JOIN yapmasını sağlar
       .select('*, product_details(*)', { count: 'exact' }); 
 
-    // Filtreleri dinamik olarak uygula
-    if (filterDomain) {
-      pageQuery = pageQuery.ilike('domain', `%${filterDomain}%`);
+    // Filtreleri uygula
+    if (filterDomain) pageQuery = pageQuery.ilike('domain', `%${filterDomain}%`);
+    if (filterStatus !== 'all') pageQuery = pageQuery.eq('product_details.status', filterStatus);
+    if (filterCurrency) pageQuery = pageQuery.ilike('currency', `%${filterCurrency}%`);
+    if (filterLanguage) pageQuery = pageQuery.ilike('language', `%${filterLanguage}%`);
+    if (filterTitle) pageQuery = pageQuery.ilike('product_details.title', `%${filterTitle}%`);
+    
+    // --- YENİ FİLTRE UYGULAMASI ---
+    if (filterListedurum !== 'all') {
+      pageQuery = pageQuery.eq('listedurum', filterListedurum === 'true');
     }
-    if (filterStatus !== 'all') {
-      // 'products->>status' -> 'product_details.status'
-      pageQuery = pageQuery.eq('product_details.status', filterStatus); 
-    }
-    if (filterCurrency) {
-      pageQuery = pageQuery.ilike('currency', `%${filterCurrency}%`);
-    }
-    if (filterLanguage) {
-      pageQuery = pageQuery.ilike('language', `%${filterLanguage}%`);
-    }
-    if (filterTitle) {
-      // 'products->>title' -> 'product_details.title'
-      pageQuery = pageQuery.ilike('product_details.title', `%${filterTitle}%`);
-    }
+    // --- BİTTİ ---
 
     if (searchTerm) {
-      // 'products->>title' -> 'product_details.title'
       const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
       pageQuery = pageQuery.or(searchConditions);
     }
@@ -73,43 +72,37 @@ function App() {
       setData([]);
       setTotalRecords(0);
     } else {
-      // Gelen veri 'product_details' nesnesini içerecek
       setData(pageData as ScrapedData[] || []); 
       setTotalRecords(count || 0);
     }
 
-    // --- 2. Dışa Aktarım için Tüm Filtrelenmiş Veri Sorgusu (TÜM VERİLER) ---
+    // --- Dışa Aktarım Sorgusu (Güncellendi) ---
     let allDataQuery = supabase
       .from('scraped_data')
-      .select('*, product_details(*)'); // JOIN
+      .select('*, product_details(*)');
 
-    if (filterDomain) {
-      allDataQuery = allDataQuery.ilike('domain', `%${filterDomain}%`);
+    if (filterDomain) allDataQuery = allDataQuery.ilike('domain', `%${filterDomain}%`);
+    if (filterStatus !== 'all') allDataQuery = allDataQuery.eq('product_details.status', filterStatus); 
+    if (filterCurrency) allDataQuery = allDataQuery.ilike('currency', `%${filterCurrency}%`);
+    if (filterLanguage) allDataQuery = allDataQuery.ilike('language', `%${filterLanguage}%`);
+    if (filterTitle) allDataQuery = allDataQuery.ilike('product_details.title', `%${filterTitle}%`);
+    
+    // --- YENİ FİLTRE UYGULAMASI ---
+    if (filterListedurum !== 'all') {
+      allDataQuery = allDataQuery.eq('listedurum', filterListedurum === 'true');
     }
-    if (filterStatus !== 'all') {
-      allDataQuery = allDataQuery.eq('product_details.status', filterStatus); // Güncellendi
-    }
-    if (filterCurrency) {
-      allDataQuery = allDataQuery.ilike('currency', `%${filterCurrency}%`);
-    }
-    if (filterLanguage) {
-      allDataQuery = allDataQuery.ilike('language', `%${filterLanguage}%`);
-    }
-    if (filterTitle) {
-      allDataQuery = allDataQuery.ilike('product_details.title', `%${filterTitle}%`); // Güncellendi
-    }
+    // --- BİTTİ ---
     
     if (searchTerm) {
-      const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`; // Güncellendi
+      const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`; 
       allDataQuery = allDataQuery.or(searchConditions);
     }
 
     const { data: fullData } = await allDataQuery.order('date', { ascending: false });
     setAllData(fullData as ScrapedData[] || []);
 
-  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle]);
+  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle, filterListedurum]); // Bağımlılık eklendi
   // --- YÜKLEME SONU ---
-
   
   const loadLatestJob = useCallback(async (jobToResume?: ScrapeJob) => {
     const { data: jobs, error } = await supabase
@@ -151,7 +144,7 @@ function App() {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle]);
+  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle, filterListedurum]); // Bağımlılık eklendi
 
   
   useEffect(() => {
@@ -164,6 +157,7 @@ function App() {
     return formatDate(today);
   };
 
+  // --- resumeScraping (değişiklik yok) ---
   const resumeScraping = async (job: ScrapeJob) => {
     try {
       const startDate = new Date(job.processing_date);
@@ -177,7 +171,6 @@ function App() {
 
         const records = await scrapeDate(dateStr);
         if (records.length > 0) {
-          // saveRecords artık yeni yapıyla çalışıyor
           await saveRecords(job.id, records); 
           totalRecords += records.length;
         }
@@ -217,6 +210,7 @@ function App() {
     }
   };
 
+  // --- handleStartScraping (değişiklik yok) ---
   const handleStartScraping = async (startDate: string, endDate: string) => {
     try {
       setIsScrapingActive(true);
@@ -253,7 +247,6 @@ function App() {
 
         const records = await scrapeDate(dateStr);
         if (records.length > 0) {
-          // saveRecords artık yeni yapıyla çalışıyor
           await saveRecords(newJob.id, records);
           totalRecords += records.length;
         }
@@ -291,7 +284,8 @@ function App() {
       setCurrentProgress('');
     }
   };
-
+  
+  // --- handleContinueFromLast (değişiklik yok) ---
   const handleContinueFromLast = async () => {
     if (!currentJob) return;
 
@@ -326,6 +320,33 @@ function App() {
     setCurrentPage(page);
   };
 
+  // --- YENİ: İnceleyen Kişi Seçimi JSX ---
+  const userSelector = (
+    <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+      <label htmlFor="user-selector" className="flex items-center gap-2 text-lg font-semibold text-gray-800 mb-2">
+        <UserCheck className="w-5 h-5 text-blue-600" />
+        İnceleyen Kişi
+      </label>
+      <select
+        id="user-selector"
+        value={currentUser}
+        onChange={(e) => setCurrentUser(e.target.value)}
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      >
+        <option value="" disabled>Lütfen adınızı seçin...</option>
+        {REVIEWERS.map(user => (
+          <option key={user} value={user}>{user}</option>
+        ))}
+      </select>
+      {!currentUser && (
+        <p className="text-sm text-red-600 mt-2">
+          Listeleme yapmak (checkbox'ları işaretlemek) için bir kullanıcı seçmeniz gerekmektedir.
+        </p>
+      )}
+    </div>
+  );
+  // --- BİTTİ ---
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -339,7 +360,12 @@ function App() {
           </p>
         </div>
 
+        {/* --- YENİ: Kullanıcı seçimi eklendi --- */}
+        {userSelector}
+
+        {/* --- YENİ: Grid yapısı güncellendi --- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* Scraping ve JobProgress artık kullanıcı seçilse de görünebilir */}
           <div className="lg:col-span-2">
             <div className="space-y-4">
               <DateRangeForm onSubmit={handleStartScraping} disabled={isScrapingActive} />
@@ -361,6 +387,11 @@ function App() {
           </div>
         </div>
 
+        {/* --- YENİ: DataTable artık kullanıcı seçildiyse render ediliyor --- */}
+        {/* VEYA veri yüklenirken (isLoading) */}
+        {/* <DataTable> her zaman render edilebilir, ancak checkbox'lar
+            'currentUser' olmadan devre dışı kalır. Bu daha iyi bir UX. */}
+
         <DataTable
           data={data}
           currentPage={currentPage}
@@ -368,6 +399,9 @@ function App() {
           totalRecords={totalRecords}
           onPageChange={handlePageChange}
           allData={allData} 
+          
+          // --- YENİ PROP'LAR EKLENDİ ---
+          currentUser={currentUser} 
           
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -381,6 +415,10 @@ function App() {
           setFilterLanguage={setFilterLanguage}
           filterTitle={filterTitle}
           setFilterTitle={setFilterTitle}
+          
+          // --- YENİ FİLTRE PROPLARI ---
+          filterListedurum={filterListedurum}
+          setFilterListedurum={setFilterListedurum}
         />
       </div>
     </div>
