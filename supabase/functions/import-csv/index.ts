@@ -1,11 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { CsvParseStream } from 'https://deno.land/std@0.208.0/csv/stream.ts';
-// pooledMap artık kullanılmıyor
+// parseCsv yerine CsvParseStream'i (Akışlı Okuyucu) import ediyoruz
+// --- DÜZELTME: Doğru dosya yolu 'parse.ts' olarak güncellendi ---
+import { CsvParseStream } from 'https://deno.land/std@0.208.0/csv/parse.ts';
 
-// --- DÜZELTME: BATCH_SIZE'ı 1'e düşürdük ---
-const BATCH_SIZE = 1; // Her çağrıda sadece 1 satır işle
-// --- DÜZELTME SONU ---
+// --- DÜZELTME: BATCH_SIZE = 1 ---
+// Her fonksiyon çağrısı sadece 1 satır işleyecek.
+// Bu, zaman aşımını (timeout) kesin olarak engeller.
+const BATCH_SIZE = 1;
 
+// Arayüz (CSV dosyanızdaki sütun adlarıyla eşleşmeli)
 interface CsvRow {
   domain: string;
   title: string;
@@ -22,24 +25,28 @@ interface CsvRow {
   currency?: string;
 }
 
+// Supabase Admin İstemcisi
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
+// CORS Ayarları
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Satırları işleyen çekirdek fonksiyon (değişiklik yok)
+// 1 Satırı işleyen çekirdek fonksiyon
 const processRow = async (row: CsvRow, jobId: string) => {
+  // 'row' objesi CsvParseStream tarafından (başlıklara göre) doldurulur
   if (!row.domain || !row.title) {
     console.warn(`[Job ${jobId}] Satır atlandı (domain/title eksik):`, row.domain);
     return;
   }
   
   try {
+    // 1. Ana veriyi ekle/güncelle
     const dataToInsertOrUpdate = {
       domain: row.domain, ciro: row.ciro || null, adlink: row.adlink || null,
       niche: row.niche || null, product_count: parseInt(row.product_count || '0') || null,
@@ -56,6 +63,7 @@ const processRow = async (row: CsvRow, jobId: string) => {
     if (upsertError) throw new Error(`scraped_data upsert hatası: ${upsertError.message}`);
     if (!upsertedData) throw new Error('scraped_data ID alınamadı');
 
+    // 2. Ürün detaylarını ekle/güncelle
     const images = [row.image1, row.image2, row.image3].filter(Boolean) as string[];
     const { error: productDetailsError } = await supabaseAdmin
       .from('product_details')
@@ -71,7 +79,7 @@ const processRow = async (row: CsvRow, jobId: string) => {
   }
 };
 
-
+// Ana Sunucu Fonksiyonu
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -86,12 +94,13 @@ Deno.serve(async (req) => {
       throw new Error("Eksik parametre: 'jobId' veya 'filePath' gerekli.");
     }
 
-    const startIndex = batchIndex * BATCH_SIZE;
+    // BATCH_SIZE = 1 olduğu için, startIndex = batchIndex
+    const startIndex = batchIndex * BATCH_SIZE; 
     const endIndex = startIndex + BATCH_SIZE;
     let currentIndex = 0;
     const rowsToProcess: CsvRow[] = [];
 
-    console.log(`[Job ${jobId}] Batch ${batchIndex} (Satır ${startIndex} - ${endIndex}) işleniyor...`);
+    console.log(`[Job ${jobId}] Batch ${batchIndex} (Satır ${startIndex}) işleniyor...`);
 
     // 1. CSV dosyasını Storage'dan indir
     const { data: fileData, error: storageError } = await supabaseAdmin.storage
@@ -104,32 +113,40 @@ Deno.serve(async (req) => {
     // 2. Dosyayı 'Stream' (Akış) olarak oku
     const readableStream = fileData.body;
 
+    // CsvParseStream'i ayarla (başlıkları otomatik okur ve objeye çevirir)
     const csvStream = readableStream
       .pipeThrough(new TextDecoderStream())
       .pipeThrough(new CsvParseStream({
-        skipFirstRow: true,
+        skipFirstRow: true, // Başlık satırını atla
       }));
 
-    let totalRowsInFile = 0;
+    let totalRowsInFile = 0; 
     let reachedEndOfFile = false;
 
     // 3. Dosyayı satır satır tara
     for await (const row of csvStream) {
       totalRowsInFile++;
       
+      // Bu satır bizim aradığımız satırın altındaysa, atla
       if (currentIndex < startIndex) {
         currentIndex++;
         continue;
       }
+
+      // Bu satır bizim aradığımız satırsa (BATCH_SIZE = 1), listeye ekle
       if (currentIndex < endIndex) {
         rowsToProcess.push(row as unknown as CsvRow);
       }
+      
       currentIndex++;
+
+      // Batch (grup) dolduysa (1 satır bulunduysa), daha fazla okumayı bırak
       if (currentIndex >= endIndex) {
         break;
       }
     }
 
+    // Eğer 'rowsToProcess' boşsa, dosyanın sonuna gelmişiz demektir
     if (rowsToProcess.length === 0) {
       reachedEndOfFile = true;
     }
@@ -137,17 +154,18 @@ Deno.serve(async (req) => {
     // 4. Batch'i işle (eğer satır varsa)
     if (!reachedEndOfFile) {
       
-      // BATCH_SIZE = 1 olduğu için, pooledMap'e gerek yok, direkt seri işleme
-      console.log(`[Job ${jobId}] ${rowsToProcess.length} satır SERİ olarak işleniyor...`);
+      // Sadece 1 satır işlenecek
+      console.log(`[Job ${jobId}] ${rowsToProcess.length} satır işleniyor...`);
       for (const row of rowsToProcess) {
-        await processRow(row, jobId);
+        await processRow(row, jobId); // 1 satırı bekle
       }
       console.log(`[Job ${jobId}] Batch ${batchIndex} tamamlandı.`);
     
-      // 5. Bir sonraki batch'i tetikle
+      // 5. Bir sonraki batch'i tetikle (sonraki satır için)
       const nextBatchIndex = batchIndex + 1;
       const functionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/import-csv`;
       
+      // 'await' kullanmıyoruz (fire-and-forget)
       fetch(functionUrl, {
         method: 'POST',
         headers: {
@@ -171,11 +189,12 @@ Deno.serve(async (req) => {
       // 7. Dosyanın sonuna ulaşıldı, işlemi bitir
       await supabaseAdmin
         .from('scrape_jobs')
-        .update({ status: 'completed', total_records: totalRowsInFile })
+        .update({ status: 'completed', total_records: totalRowsInFile }) // Toplam satır sayısını kaydet
         .eq('id', jobId);
       
       console.log(`[Job ${jobId}] Tamamlandı. Toplam ${totalRowsInFile} satır.`);
-      await supabaseAdmin.storage.from('csv-uploads').remove([filePath]);
+      // İşlem bitti, CSV dosyasını Storage'dan sil
+      await supabaseAdmin.storage.from('csv-uploads').remove([filePath]); 
 
       return new Response(JSON.stringify({ message: `Job ${jobId} tamamlandı.` }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
