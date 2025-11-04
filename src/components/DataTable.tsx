@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Download, FileJson, Search } from 'lucide-react';
 import { ScrapedData } from '../lib/supabase';
 import { exportToCSV, exportToJSON } from '../lib/export';
@@ -10,6 +9,13 @@ interface DataTableProps {
   totalRecords: number;
   onPageChange: (page: number) => void;
   allData: ScrapedData[];
+  // Props olarak eklenen filtre state'leri ve setter'ları
+  searchTerm: string;
+  setSearchTerm: (value: string) => void;
+  filterDomain: string;
+  setFilterDomain: (value: string) => void;
+  filterStatus: 'all' | 'open' | 'closed';
+  setFilterStatus: (value: 'all' | 'open' | 'closed') => void;
 }
 
 export function DataTable({
@@ -18,27 +24,25 @@ export function DataTable({
   totalPages,
   totalRecords,
   onPageChange,
-  allData
+  allData,
+  // Prop'ları al
+  searchTerm,
+  setSearchTerm,
+  filterDomain,
+  setFilterDomain,
+  filterStatus,
+  setFilterStatus
 }: DataTableProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterDomain, setFilterDomain] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
+  
+  // --- İstemci Taraflı Filtreleme Kaldırıldı ---
+  // const [searchTerm, setSearchTerm] = useState(''); // KALDIRILDI
+  // const [filterDomain, setFilterDomain] = useState(''); // KALDIRILDI
+  // const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all'); // KALDIRILDI
 
-  const filteredData = data.filter(row => {
-    const productTitle = row.products.title || '';
-    const matchesSearch = row.domain.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         row.date.includes(searchTerm) ||
-                         row.currency.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         row.language.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         productTitle.toLowerCase().includes(searchTerm.toLowerCase());
+  // const filteredData = data.filter(row => { ... }); // KALDIRILDI
+  // --- ---
 
-    const matchesDomain = !filterDomain || row.domain.toLowerCase().includes(filterDomain.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || row.products.status === filterStatus;
-
-    return matchesSearch && matchesDomain && matchesStatus;
-  });
-
-  if (allData.length === 0) {
+  if (allData.length === 0 && data.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200 text-center">
         <p className="text-gray-500">No data available. Start a scraping job to see results.</p>
@@ -49,7 +53,6 @@ export function DataTable({
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <div className="p-4 border-b border-gray-200">
-        {/* ... (Filtreleme ve Dışa Aktarma kısmı değişmedi) ... */}
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-800">
             Scraped Data ({totalRecords.toLocaleString()} records)
@@ -78,8 +81,8 @@ export function DataTable({
             <input
               type="text"
               placeholder="Search by domain, title, date..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchTerm} // Prop'u kullan
+              onChange={(e) => setSearchTerm(e.target.value)} // Prop setter'ı kullan
               className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -87,14 +90,14 @@ export function DataTable({
           <input
             type="text"
             placeholder="Filter by domain..."
-            value={filterDomain}
-            onChange={(e) => setFilterDomain(e.target.value)}
+            value={filterDomain} // Prop'u kullan
+            onChange={(e) => setFilterDomain(e.target.value)} // Prop setter'ı kullan
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
 
           <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as 'all' | 'open' | 'closed')}
+            value={filterStatus} // Prop'u kullan
+            onChange={(e) => setFilterStatus(e.target.value as 'all' | 'open' | 'closed')} // Prop setter'ı kullan
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">All Status</option>
@@ -105,9 +108,9 @@ export function DataTable({
           {(searchTerm || filterDomain || filterStatus !== 'all') && (
             <button
               onClick={() => {
-                setSearchTerm('');
-                setFilterDomain('');
-                setFilterStatus('all');
+                setSearchTerm(''); // Prop setter'ı kullan
+                setFilterDomain(''); // Prop setter'ı kullan
+                setFilterStatus('all'); // Prop setter'ı kullan
               }}
               className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 transition-colors"
             >
@@ -117,14 +120,11 @@ export function DataTable({
         </div>
       </div>
 
-      {/* --- DÜZELTME BURADA ---
-        'overflow-x-auto' sınıfı kaldırıldı. Artık resimler taşabilir.
-        Eski kod: <div className="overflow-x-auto">
-      */}
       <div className="">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
+              {/* Başlıklar değişmedi */}
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Date
               </th>
@@ -149,7 +149,8 @@ export function DataTable({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredData.map((row) => (
+            {/* 'filteredData' yerine 'data' prop'unu doğrudan kullan */}
+            {data.map((row) => (
               <tr key={row.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                   {row.date}
@@ -183,9 +184,6 @@ export function DataTable({
                   {row.products.title || '-'}
                 </td>
                 
-                {/* Bu hücre 'relative group' ve 'z-index' kodlarını içerir.
-                  Artık üst 'div'de 'overflow' olmadığı için doğru çalışacaktır.
-                */}
                 <td className="px-4 py-4 py-3">
                   {row.products.status === 'open' && row.products.images.length > 0 ? (
                     <div className="flex gap-2">
@@ -206,7 +204,6 @@ export function DataTable({
                                 target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48"%3E%3Crect fill="%23f0f0f0" width="48" height="48"/%3E%3Ctext x="50%25" y="50%25" font-size="12" fill="%23999" text-anchor="middle" dy=".3em"%3EError%3C/text%3E%3C/svg%3E';
                               }}
                             />
-                            {/* BÜYÜK GÖRSEL (HOVER) */}
                             <img
                               src={img}
                               alt="Product preview"
@@ -228,11 +225,11 @@ export function DataTable({
         </table>
       </div>
 
-      {/* ... (Sayfalama kısmı değişmedi) ... */}
       {totalPages > 1 && (
         <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
           <div className="text-sm text-gray-600">
-            Page {currentPage} of {totalPages} ({filteredData.length} visible records)
+            {/* Toplam kayıt sayısını 'totalRecords'dan, görüneni 'data.length'den al */}
+            Page {currentPage} of {totalPages} ({data.length} visible of {totalRecords.toLocaleString()} matching records)
           </div>
           <div className="flex gap-2">
             <button
