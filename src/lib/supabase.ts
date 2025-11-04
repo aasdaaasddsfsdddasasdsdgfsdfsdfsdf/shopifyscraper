@@ -36,10 +36,17 @@ export interface ScrapedData {
   language: string;
   created_at: string;
   
-  // Normalizasyondan gelen (JOIN ile)
   product_details: ProductDetails; 
   
-  // --- YENİ SÜTUNLAR EKLENDİ ---
   listedurum: boolean;
   inceleyen: string | null;
+  
+  // --- YENİ CSV SÜTUNLARI EKLENDİ ---
+  ciro: string | null;
+  adlink: string | null;
+  niche: string | null;
+  product_count: number | null;
+  trafik: string | null;
+  app: string | null;
+  theme: string | null;
 }
