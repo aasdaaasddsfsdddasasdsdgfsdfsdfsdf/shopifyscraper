@@ -23,6 +23,10 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDomain, setFilterDomain] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
+  // --- YENİ FİLTRE STATE'LERİ ---
+  const [filterCurrency, setFilterCurrency] = useState('');
+  const [filterLanguage, setFilterLanguage] = useState('');
+  const [filterTitle, setFilterTitle] = useState('');
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
@@ -43,6 +47,18 @@ function App() {
     if (filterStatus !== 'all') {
       pageQuery = pageQuery.eq('products->>status', filterStatus);
     }
+    // --- YENİ FİLTRELER EKLENDİ (AND) ---
+    if (filterCurrency) {
+      pageQuery = pageQuery.ilike('currency', `%${filterCurrency}%`);
+    }
+    if (filterLanguage) {
+      pageQuery = pageQuery.ilike('language', `%${filterLanguage}%`);
+    }
+    if (filterTitle) {
+      pageQuery = pageQuery.ilike('products->>title', `%${filterTitle}%`);
+    }
+    // --- BİTTİ ---
+
     if (searchTerm) {
       const searchConditions = `domain.ilike.%${searchTerm}%,products->>title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
       pageQuery = pageQuery.or(searchConditions);
@@ -77,6 +93,18 @@ function App() {
     if (filterStatus !== 'all') {
       allDataQuery = allDataQuery.eq('products->>status', filterStatus);
     }
+    // --- YENİ FİLTRELER EKLENDİ (AND) ---
+    if (filterCurrency) {
+      allDataQuery = allDataQuery.ilike('currency', `%${filterCurrency}%`);
+    }
+    if (filterLanguage) {
+      allDataQuery = allDataQuery.ilike('language', `%${filterLanguage}%`);
+    }
+    if (filterTitle) {
+      allDataQuery = allDataQuery.ilike('products->>title', `%${filterTitle}%`);
+    }
+    // --- BİTTİ ---
+    
     if (searchTerm) {
       const searchConditions = `domain.ilike.%${searchTerm}%,products->>title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
       allDataQuery = allDataQuery.or(searchConditions);
@@ -85,7 +113,7 @@ function App() {
     const { data: fullData } = await allDataQuery.order('date', { ascending: false });
     setAllData(fullData || []);
 
-  }, [searchTerm, filterDomain, filterStatus]); // Sadece filtre state'lerine bağlı
+  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle]); // Sadece filtre state'lerine bağlı
 
   // Sadece en son işi (JobProgress için) yükler
   const loadLatestJob = useCallback(async (jobToResume?: ScrapeJob) => {
@@ -128,7 +156,7 @@ function App() {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [searchTerm, filterDomain, filterStatus]);
+  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle]);
 
   // Veri yükleme için ana useEffect (Sayfa veya filtreler değiştiğinde)
   useEffect(() => {
@@ -352,6 +380,13 @@ function App() {
           setFilterDomain={setFilterDomain}
           filterStatus={filterStatus}
           setFilterStatus={setFilterStatus}
+          // --- YENİ PROPLAR EKLENDİ ---
+          filterCurrency={filterCurrency}
+          setFilterCurrency={setFilterCurrency}
+          filterLanguage={filterLanguage}
+          setFilterLanguage={setFilterLanguage}
+          filterTitle={filterTitle}
+          setFilterTitle={setFilterTitle}
         />
       </div>
     </div>
