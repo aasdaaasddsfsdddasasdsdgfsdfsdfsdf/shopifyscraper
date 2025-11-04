@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Download, FileJson, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, FileJson, Search, Loader2 } from 'lucide-react';
 import { ScrapedData } from '../lib/supabase';
 import { exportToCSV, exportToJSON } from '../lib/export';
 
@@ -9,6 +9,7 @@ interface DataTableProps {
   totalRecords: number;
   onPageChange: (page: number) => void;
   allData: ScrapedData[];
+  isLoading: boolean; // YENİ EKLENDİ
   // Props olarak eklenen filtre state'leri ve setter'ları
   searchTerm: string;
   setSearchTerm: (value: string) => void;
@@ -25,6 +26,7 @@ export function DataTable({
   totalRecords,
   onPageChange,
   allData,
+  isLoading, // YENİ EKLENDİ
   // Prop'ları al
   searchTerm,
   setSearchTerm,
@@ -34,15 +36,18 @@ export function DataTable({
   setFilterStatus
 }: DataTableProps) {
   
-  // --- İstemci Taraflı Filtreleme Kaldırıldı ---
-  // const [searchTerm, setSearchTerm] = useState(''); // KALDIRILDI
-  // const [filterDomain, setFilterDomain] = useState(''); // KALDIRILDI
-  // const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all'); // KALDIRILDI
+  // Yüklenme durumu
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200 text-center">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
+        <p className="text-gray-500 mt-2">Loading data...</p>
+      </div>
+    );
+  }
 
-  // const filteredData = data.filter(row => { ... }); // KALDIRILDI
-  // --- ---
-
-  if (allData.length === 0 && data.length === 0) {
+  // Veri yok durumu (Yüklenme bittikten sonra)
+  if (!isLoading && totalRecords === 0) { // KONTROL DEĞİŞTİ
     return (
       <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200 text-center">
         <p className="text-gray-500">No data available. Start a scraping job to see results.</p>
@@ -60,14 +65,16 @@ export function DataTable({
           <div className="flex gap-2">
             <button
               onClick={() => exportToCSV(allData)}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-medium"
+              disabled={allData.length === 0}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-medium disabled:bg-gray-400"
             >
               <Download className="w-4 h-4" />
               Export CSV
             </button>
             <button
               onClick={() => exportToJSON(allData)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium"
+              disabled={allData.length === 0}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium disabled:bg-gray-400"
             >
               <FileJson className="w-4 h-4" />
               Export JSON
@@ -81,8 +88,8 @@ export function DataTable({
             <input
               type="text"
               placeholder="Search by domain, title, date..."
-              value={searchTerm} // Prop'u kullan
-              onChange={(e) => setSearchTerm(e.target.value)} // Prop setter'ı kullan
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -90,14 +97,14 @@ export function DataTable({
           <input
             type="text"
             placeholder="Filter by domain..."
-            value={filterDomain} // Prop'u kullan
-            onChange={(e) => setFilterDomain(e.target.value)} // Prop setter'ı kullan
+            value={filterDomain}
+            onChange={(e) => setFilterDomain(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
 
           <select
-            value={filterStatus} // Prop'u kullan
-            onChange={(e) => setFilterStatus(e.target.value as 'all' | 'open' | 'closed')} // Prop setter'ı kullan
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as 'all' | 'open' | 'closed')}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">All Status</option>
@@ -108,9 +115,9 @@ export function DataTable({
           {(searchTerm || filterDomain || filterStatus !== 'all') && (
             <button
               onClick={() => {
-                setSearchTerm(''); // Prop setter'ı kullan
-                setFilterDomain(''); // Prop setter'ı kullan
-                setFilterStatus('all'); // Prop setter'ı kullan
+                setSearchTerm('');
+                setFilterDomain('');
+                setFilterStatus('all');
               }}
               className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 transition-colors"
             >
@@ -124,7 +131,6 @@ export function DataTable({
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              {/* Başlıklar değişmedi */}
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Date
               </th>
@@ -149,7 +155,6 @@ export function DataTable({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {/* 'filteredData' yerine 'data' prop'unu doğrudan kullan */}
             {data.map((row) => (
               <tr key={row.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -228,7 +233,6 @@ export function DataTable({
       {totalPages > 1 && (
         <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
           <div className="text-sm text-gray-600">
-            {/* Toplam kayıt sayısını 'totalRecords'dan, görüneni 'data.length'den al */}
             Page {currentPage} of {totalPages} ({data.length} visible of {totalRecords.toLocaleString()} matching records)
           </div>
           <div className="flex gap-2">
