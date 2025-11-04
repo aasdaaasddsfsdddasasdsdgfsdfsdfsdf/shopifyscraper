@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { DateRangeForm } from './components/DateRangeForm';
 import { JobProgress } from './components/JobProgress';
@@ -16,28 +17,24 @@ function App() {
   const [isScrapingActive, setIsScrapingActive] = useState(false);
   const [currentProgress, setCurrentProgress] = useState('');
   
-  // --- YENİ STATE: İnceleyen Kişi ---
   const [currentUser, setCurrentUser] = useState('');
   
-  // Data ve Filtre State'leri
   const [data, setData] = useState<ScrapedData[]>([]);
   const [allData, setAllData] = useState<ScrapedData[]>([]); 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
-  // Filtre state'leri
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDomain, setFilterDomain] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
   const [filterCurrency, setFilterCurrency] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterTitle, setFilterTitle] = useState('');
-  // --- YENİ FİLTRE: "Liselensin mi?" ---
   const [filterListedurum, setFilterListedurum] = useState<'all' | 'true' | 'false'>('all');
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
-  // --- loadGridData GÜNCELLENDİ (listedurum filtresi eklendi) ---
+  // --- loadGridData GÜNCELLENDİ (Sıralama eklendi) ---
   const loadGridData = useCallback(async (page: number) => {
     const offset = (page - 1) * ITEMS_PER_PAGE;
 
@@ -52,20 +49,22 @@ function App() {
     if (filterLanguage) pageQuery = pageQuery.ilike('language', `%${filterLanguage}%`);
     if (filterTitle) pageQuery = pageQuery.ilike('product_details.title', `%${filterTitle}%`);
     
-    // --- YENİ FİLTRE UYGULAMASI ---
     if (filterListedurum !== 'all') {
       pageQuery = pageQuery.eq('listedurum', filterListedurum === 'true');
     }
-    // --- BİTTİ ---
 
     if (searchTerm) {
       const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
       pageQuery = pageQuery.or(searchConditions);
     }
 
+    // --- SIRALAMA GÜNCELLENDİ (1. YER) ---
+    // Önce tarihe göre (azalan), sonra domaine göre (artan) sırala
     const { data: pageData, error: dataError, count } = await pageQuery
       .order('date', { ascending: false })
+      .order('domain', { ascending: true }) // YENİ EKLENDİ
       .range(offset, offset + ITEMS_PER_PAGE - 1);
+    // --- SIRALAMA GÜNCELLENDİ SONU ---
 
     if (dataError) {
       console.error('Error loading data:', dataError);
@@ -87,21 +86,25 @@ function App() {
     if (filterLanguage) allDataQuery = allDataQuery.ilike('language', `%${filterLanguage}%`);
     if (filterTitle) allDataQuery = allDataQuery.ilike('product_details.title', `%${filterTitle}%`);
     
-    // --- YENİ FİLTRE UYGULAMASI ---
     if (filterListedurum !== 'all') {
       allDataQuery = allDataQuery.eq('listedurum', filterListedurum === 'true');
     }
-    // --- BİTTİ ---
     
     if (searchTerm) {
       const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`; 
       allDataQuery = allDataQuery.or(searchConditions);
     }
 
-    const { data: fullData } = await allDataQuery.order('date', { ascending: false });
+    // --- SIRALAMA GÜNCELLENDİ (2. YER) ---
+    // Dışa aktarma sorgusu da aynı sıralamayı kullanmalı
+    const { data: fullData } = await allDataQuery
+      .order('date', { ascending: false })
+      .order('domain', { ascending: true }); // YENİ EKLENDİ
+    // --- SIRALAMA GÜNCELLENDİ SONU ---
+    
     setAllData(fullData as ScrapedData[] || []);
 
-  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle, filterListedurum]); // Bağımlılık eklendi
+  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle, filterListedurum]); 
   // --- YÜKLEME SONU ---
   
   const loadLatestJob = useCallback(async (jobToResume?: ScrapeJob) => {
@@ -144,7 +147,7 @@ function App() {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle, filterListedurum]); // Bağımlılık eklendi
+  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle, filterListedurum]); 
 
   
   useEffect(() => {
@@ -157,7 +160,6 @@ function App() {
     return formatDate(today);
   };
 
-  // --- resumeScraping (değişiklik yok) ---
   const resumeScraping = async (job: ScrapeJob) => {
     try {
       const startDate = new Date(job.processing_date);
@@ -210,7 +212,6 @@ function App() {
     }
   };
 
-  // --- handleStartScraping (değişiklik yok) ---
   const handleStartScraping = async (startDate: string, endDate: string) => {
     try {
       setIsScrapingActive(true);
@@ -285,7 +286,6 @@ function App() {
     }
   };
   
-  // --- handleContinueFromLast (değişiklik yok) ---
   const handleContinueFromLast = async () => {
     if (!currentJob) return;
 
@@ -320,7 +320,6 @@ function App() {
     setCurrentPage(page);
   };
 
-  // --- YENİ: İnceleyen Kişi Seçimi JSX ---
   const userSelector = (
     <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
       <label htmlFor="user-selector" className="flex items-center gap-2 text-lg font-semibold text-gray-800 mb-2">
@@ -345,7 +344,6 @@ function App() {
       )}
     </div>
   );
-  // --- BİTTİ ---
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -360,12 +358,9 @@ function App() {
           </p>
         </div>
 
-        {/* --- YENİ: Kullanıcı seçimi eklendi --- */}
         {userSelector}
 
-        {/* --- YENİ: Grid yapısı güncellendi --- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* Scraping ve JobProgress artık kullanıcı seçilse de görünebilir */}
           <div className="lg:col-span-2">
             <div className="space-y-4">
               <DateRangeForm onSubmit={handleStartScraping} disabled={isScrapingActive} />
@@ -387,11 +382,6 @@ function App() {
           </div>
         </div>
 
-        {/* --- YENİ: DataTable artık kullanıcı seçildiyse render ediliyor --- */}
-        {/* VEYA veri yüklenirken (isLoading) */}
-        {/* <DataTable> her zaman render edilebilir, ancak checkbox'lar
-            'currentUser' olmadan devre dışı kalır. Bu daha iyi bir UX. */}
-
         <DataTable
           data={data}
           currentPage={currentPage}
@@ -400,7 +390,6 @@ function App() {
           onPageChange={handlePageChange}
           allData={allData} 
           
-          // --- YENİ PROP'LAR EKLENDİ ---
           currentUser={currentUser} 
           
           searchTerm={searchTerm}
@@ -416,7 +405,6 @@ function App() {
           filterTitle={filterTitle}
           setFilterTitle={setFilterTitle}
           
-          // --- YENİ FİLTRE PROPLARI ---
           filterListedurum={filterListedurum}
           setFilterListedurum={setFilterListedurum}
         />
