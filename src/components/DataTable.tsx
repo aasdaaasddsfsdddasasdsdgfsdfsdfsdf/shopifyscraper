@@ -248,7 +248,7 @@ export function DataTable({
               disabled={currentPage === totalPages}
               className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="ws-4 h-4" />
             </button>
           </div>
         </div>
