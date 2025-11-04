@@ -21,3 +21,4 @@ WHERE a.ctid <> (
 -- (Eğer daha önce eklendiyse hata vermemesi için 'IF NOT EXISTS' kontrolü)
 ALTER TABLE scraped_data
 ADD CONSTRAINT scraped_data_domain_key UNIQUE (domain);
+
