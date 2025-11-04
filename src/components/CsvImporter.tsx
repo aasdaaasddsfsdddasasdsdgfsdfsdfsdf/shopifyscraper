@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Papa from 'papaparse';
-import { supabase } from '../lib/supabase';
+import { supabase } from 'npm run dev -- --force/lib/supabase';
 import { Loader2, UploadCloud, CheckCircle, XCircle } from 'lucide-react';
 
 interface CsvRow {
