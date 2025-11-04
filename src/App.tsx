@@ -662,6 +662,7 @@ interface DataTableProps {
   allData: ScrapedData[];
   isLoading: boolean;
   currentUser: string; 
+  reviewers: string[]; // <-- YENİ
   
   // Filtreler ve Setter'ları
   searchTerm: string;
@@ -690,6 +691,8 @@ interface DataTableProps {
   setFilterApp: (value: string) => void;
   filterTheme: string;
   setFilterTheme: (value: string) => void;
+  filterInceleyen: 'all' | string; // <-- YENİ
+  setFilterInceleyen: (value: 'all' | string) => void; // <-- YENİ
 }
 
 const DataTable = memo(({
@@ -700,7 +703,8 @@ const DataTable = memo(({
   onPageChange,
   allData,
   isLoading,
-  currentUser, 
+  currentUser,
+  reviewers, // <-- YENİ
   ...filterProps 
 }: DataTableProps) => {
   
@@ -723,6 +727,7 @@ const DataTable = memo(({
   const [localFilterProductCount, setLocalFilterProductCount] = useState(filterProps.filterProductCount);
   const [localFilterApp, setLocalFilterApp] = useState(filterProps.filterApp);
   const [localFilterTheme, setLocalFilterTheme] = useState(filterProps.filterTheme);
+  const [localFilterInceleyen, setLocalFilterInceleyen] = useState(filterProps.filterInceleyen); // <-- YENİ
 
   const handleFilterApply = () => {
     filterProps.setSearchTerm(localSearchTerm);
@@ -738,6 +743,7 @@ const DataTable = memo(({
     filterProps.setFilterProductCount(localFilterProductCount);
     filterProps.setFilterApp(localFilterApp);
     filterProps.setFilterTheme(localFilterTheme);
+    filterProps.setFilterInceleyen(localFilterInceleyen); // <-- YENİ
   };
 
   const handleFilterClear = () => {
@@ -754,6 +760,7 @@ const DataTable = memo(({
     setLocalFilterProductCount('');
     setLocalFilterApp('');
     setLocalFilterTheme('');
+    setLocalFilterInceleyen('all'); // <-- YENİ
 
     // Parent state'i (App) de temizle
     filterProps.setSearchTerm('');
@@ -769,9 +776,10 @@ const DataTable = memo(({
     filterProps.setFilterProductCount('');
     filterProps.setFilterApp('');
     filterProps.setFilterTheme('');
+    filterProps.setFilterInceleyen('all'); // <-- YENİ
   };
 
- // ... (DataTable bileşeni içi)
+  // --- DÜZELTME: useEffect bağımlılık dizisi ---
   useEffect(() => {
     setLocalSearchTerm(filterProps.searchTerm);
     setLocalFilterDomain(filterProps.filterDomain);
@@ -786,6 +794,7 @@ const DataTable = memo(({
     setLocalFilterProductCount(filterProps.filterProductCount);
     setLocalFilterApp(filterProps.filterApp);
     setLocalFilterTheme(filterProps.filterTheme);
+    setLocalFilterInceleyen(filterProps.filterInceleyen); // <-- YENİ
   }, [
       filterProps.searchTerm,
       filterProps.filterDomain,
@@ -799,8 +808,11 @@ const DataTable = memo(({
       filterProps.filterTrafik,
       filterProps.filterProductCount,
       filterProps.filterApp,
-      filterProps.filterTheme
-  ]); // <--- DÜZELTME BURADA
+      filterProps.filterTheme,
+      filterProps.filterInceleyen // <-- YENİ
+  ]); 
+  // --- DÜZELTME SONU ---
+
   const toggleColumn = (key: string) => {
     setVisibleColumns(prev => 
       prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]
@@ -967,6 +979,20 @@ const DataTable = memo(({
           <option value="true">Listelenenler</option>
           <option value="false">Listelenmeyenler</option>
         </select>
+        
+        {/* --- YENİ FİLTRE MENÜSÜ --- */}
+        <select
+          value={localFilterInceleyen}
+          onChange={(e) => setLocalFilterInceleyen(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="all">Tüm İnceleyenler</option>
+          {reviewers.map(r => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
+        {/* --- YENİ FİLTRE SONU --- */}
+        
         <button
           onClick={handleFilterApply}
           className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
@@ -1037,7 +1063,6 @@ const DataTable = memo(({
                   {visibleColumns.includes('currency') && <th className={thCell}>Currency</th>}
                   {visibleColumns.includes('language') && <th className={thCell}>Language</th>}
                   {visibleColumns.includes('product_details.status') && <th className={thCell}>Status</th>}
-                  {/* --- HATA DÜZELTİLDİ: {thCell} -> ={thCell} --- */}
                   {visibleColumns.includes('product_details.title') && <th className={thCell}>Product Title</th>}
                   {visibleColumns.includes('products') && <th className={thCell}>Products</th>}
                   {visibleColumns.includes('inceleyen') && <th className={thCell}>İnceleyen</th>}
@@ -1226,6 +1251,7 @@ function App() {
   const [filterProductCount, setFilterProductCount] = useState<number | ''>('');
   const [filterApp, setFilterApp] = useState('');
   const [filterTheme, setFilterTheme] = useState('');
+  const [filterInceleyen, setFilterInceleyen] = useState<'all' | string>('all'); // <-- YENİ
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
@@ -1254,6 +1280,7 @@ function App() {
     }
     if (filterApp) pageQuery = pageQuery.ilike('app', `%${filterApp}%`);
     if (filterTheme) pageQuery = pageQuery.ilike('theme', `%${filterTheme}%`);
+    if (filterInceleyen !== 'all') pageQuery = pageQuery.eq('inceleyen', filterInceleyen); // <-- YENİ
 
     if (searchTerm) {
       const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`;
@@ -1295,6 +1322,7 @@ function App() {
     }
     if (filterApp) allDataQuery = allDataQuery.ilike('app', `%${filterApp}%`);
     if (filterTheme) allDataQuery = allDataQuery.ilike('theme', `%${filterTheme}%`);
+    if (filterInceleyen !== 'all') allDataQuery = allDataQuery.eq('inceleyen', filterInceleyen); // <-- YENİ
     
     if (searchTerm) {
       const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`; 
@@ -1311,7 +1339,7 @@ function App() {
   }, [
     searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, 
     filterTitle, filterListedurum, filterNiche, filterCiro, filterTrafik, 
-    filterProductCount, filterApp, filterTheme
+    filterProductCount, filterApp, filterTheme, filterInceleyen // <-- YENİ
   ]); 
   
   // Scraper ile ilgili (loadLatestJob, resumeScraping) fonksiyonlar kaldırıldı
@@ -1328,7 +1356,7 @@ function App() {
   }, [
     searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, 
     filterTitle, filterListedurum, filterNiche, filterCiro, filterTrafik, 
-    filterProductCount, filterApp, filterTheme
+    filterProductCount, filterApp, filterTheme, filterInceleyen // <-- YENİ
   ]); 
 
   
@@ -1434,6 +1462,11 @@ function App() {
           setFilterApp={setFilterApp}
           filterTheme={filterTheme}
           setFilterTheme={setFilterTheme}
+          // --- YENİ PROPLAR ---
+          filterInceleyen={filterInceleyen}
+          setFilterInceleyen={setFilterInceleyen}
+          reviewers={REVIEWERS}
+          // --- PROP SONU ---
         />
       </div>
     </div>
@@ -1441,4 +1474,3 @@ function App() {
 }
 
 export default App;
-
