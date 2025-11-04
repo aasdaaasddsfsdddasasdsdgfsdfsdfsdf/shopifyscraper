@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { DateRangeForm } from './components/DateRangeForm';
 import { JobProgress } from './components/JobProgress';
@@ -6,16 +5,19 @@ import { DataTable } from './components/DataTable';
 import { supabase, ScrapeJob, ScrapedData } from './lib/supabase';
 import { scrapeDate, addDays, formatDate, saveRecords, updateJobProgress } from './lib/scraper';
 import { Database, UserCheck } from 'lucide-react';
+// --- YENİ: CsvImporter'ı import et ---
+import { CsvImporter } from './components/CsvImporter'; 
 
 const ITEMS_PER_PAGE = 50;
-
-// Kullanıcı listesi
-const REVIEWERS = ['Efkan', 'Mert', 'Furkan', 'Enes', 'Görkem','Simay','Talha'];
+const REVIEWERS = ['Efkan', 'Mert', 'Furkan'];
 
 function App() {
   const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
   const [isScrapingActive, setIsScrapingActive] = useState(false);
   const [currentProgress, setCurrentProgress] = useState('');
+  
+  // --- YENİ STATE: İçe Aktarma Durumu ---
+  const [isImporting, setIsImporting] = useState(false);
   
   const [currentUser, setCurrentUser] = useState('');
   
@@ -34,7 +36,7 @@ function App() {
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
-  // --- loadGridData GÜNCELLENDİ (Sıralama eklendi) ---
+  // loadGridData (Değişiklik yok)
   const loadGridData = useCallback(async (page: number) => {
     const offset = (page - 1) * ITEMS_PER_PAGE;
 
@@ -42,13 +44,11 @@ function App() {
       .from('scraped_data')
       .select('*, product_details(*)', { count: 'exact' }); 
 
-    // Filtreleri uygula
     if (filterDomain) pageQuery = pageQuery.ilike('domain', `%${filterDomain}%`);
     if (filterStatus !== 'all') pageQuery = pageQuery.eq('product_details.status', filterStatus);
     if (filterCurrency) pageQuery = pageQuery.ilike('currency', `%${filterCurrency}%`);
     if (filterLanguage) pageQuery = pageQuery.ilike('language', `%${filterLanguage}%`);
     if (filterTitle) pageQuery = pageQuery.ilike('product_details.title', `%${filterTitle}%`);
-    
     if (filterListedurum !== 'all') {
       pageQuery = pageQuery.eq('listedurum', filterListedurum === 'true');
     }
@@ -58,13 +58,10 @@ function App() {
       pageQuery = pageQuery.or(searchConditions);
     }
 
-    // --- SIRALAMA GÜNCELLENDİ (1. YER) ---
-    // Önce tarihe göre (azalan), sonra domaine göre (artan) sırala
     const { data: pageData, error: dataError, count } = await pageQuery
       .order('date', { ascending: false })
-      .order('domain', { ascending: true }) // YENİ EKLENDİ
+      .order('domain', { ascending: true }) 
       .range(offset, offset + ITEMS_PER_PAGE - 1);
-    // --- SIRALAMA GÜNCELLENDİ SONU ---
 
     if (dataError) {
       console.error('Error loading data:', dataError);
@@ -75,7 +72,6 @@ function App() {
       setTotalRecords(count || 0);
     }
 
-    // --- Dışa Aktarım Sorgusu (Güncellendi) ---
     let allDataQuery = supabase
       .from('scraped_data')
       .select('*, product_details(*)');
@@ -85,28 +81,23 @@ function App() {
     if (filterCurrency) allDataQuery = allDataQuery.ilike('currency', `%${filterCurrency}%`);
     if (filterLanguage) allDataQuery = allDataQuery.ilike('language', `%${filterLanguage}%`);
     if (filterTitle) allDataQuery = allDataQuery.ilike('product_details.title', `%${filterTitle}%`);
-    
     if (filterListedurum !== 'all') {
       allDataQuery = allDataQuery.eq('listedurum', filterListedurum === 'true');
     }
-    
     if (searchTerm) {
       const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`; 
       allDataQuery = allDataQuery.or(searchConditions);
     }
 
-    // --- SIRALAMA GÜNCELLENDİ (2. YER) ---
-    // Dışa aktarma sorgusu da aynı sıralamayı kullanmalı
     const { data: fullData } = await allDataQuery
       .order('date', { ascending: false })
-      .order('domain', { ascending: true }); // YENİ EKLENDİ
-    // --- SIRALAMA GÜNCELLENDİ SONU ---
+      .order('domain', { ascending: true });
     
     setAllData(fullData as ScrapedData[] || []);
 
   }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle, filterListedurum]); 
-  // --- YÜKLEME SONU ---
   
+  // loadLatestJob (Değişiklik yok)
   const loadLatestJob = useCallback(async (jobToResume?: ScrapeJob) => {
     const { data: jobs, error } = await supabase
       .from('scrape_jobs')
@@ -119,12 +110,9 @@ function App() {
       console.error('Error loading job:', error);
       return;
     }
-    
     const jobToLoad = jobToResume || jobs;
-
     if (jobToLoad) {
       setCurrentJob(jobToLoad); 
-
       if (jobToLoad.status === 'in_progress') {
         setIsScrapingActive(true);
         if (jobToResume) {
@@ -136,31 +124,29 @@ function App() {
     }
   }, []); 
 
-  
   useEffect(() => {
     loadLatestJob(); 
     loadGridData(1);  
   }, []); 
 
-  
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
   }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle, filterListedurum]); 
 
-  
   useEffect(() => {
     loadGridData(currentPage);
   }, [currentPage, loadGridData]); 
-
 
   const getTodayDateStr = (): string => {
     const today = new Date();
     return formatDate(today);
   };
 
+  // resumeScraping (Değişiklik yok)
   const resumeScraping = async (job: ScrapeJob) => {
+    // ... (kod aynı)
     try {
       const startDate = new Date(job.processing_date);
       const today = new Date(getTodayDateStr());
@@ -198,10 +184,8 @@ function App() {
         }
         
         await loadGridData(currentPage);
-
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-
       setIsScrapingActive(false);
       setCurrentProgress('');
     } catch (error) {
@@ -210,12 +194,14 @@ function App() {
       setIsScrapingActive(false);
       setCurrentProgress('');
     }
+    // ... (kod aynı)
   };
 
+  // handleStartScraping (Değişiklik yok)
   const handleStartScraping = async (startDate: string, endDate: string) => {
+    // ... (kod aynı)
     try {
       setIsScrapingActive(true);
-
       const today = getTodayDateStr();
       const finalEndDate = new Date(endDate) > new Date(today) ? today : endDate;
 
@@ -237,7 +223,6 @@ function App() {
 
       setCurrentJob(newJob);
       setCurrentPage(1); 
-
       const start = new Date(startDate);
       const end = new Date(finalEndDate);
       let totalRecords = 0;
@@ -273,10 +258,8 @@ function App() {
         }
         
         await loadGridData(1); 
-
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-
       setIsScrapingActive(false);
       setCurrentProgress('');
     } catch (error) {
@@ -284,14 +267,15 @@ function App() {
       setIsScrapingActive(false);
       setCurrentProgress('');
     }
+    // ... (kod aynı)
   };
   
+  // handleContinueFromLast (Değişiklik yok)
   const handleContinueFromLast = async () => {
+    // ... (kod aynı)
     if (!currentJob) return;
-
     try {
       setIsScrapingActive(true);
-
       const today = getTodayDateStr();
       const { data: updatedJob, error } = await supabase
         .from('scrape_jobs')
@@ -303,23 +287,29 @@ function App() {
         .eq('id', currentJob.id)
         .select()
         .single();
-
       if (error || !updatedJob) {
         throw new Error('Failed to update job');
       }
-
       loadLatestJob(updatedJob); 
-
     } catch (error) {
       console.error('Error continuing scraping:', error);
       setIsScrapingActive(false);
     }
+    // ... (kod aynı)
   };
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
+  
+  // --- YENİ: İçe aktarma tamamlandığında tetiklenecek fonksiyon ---
+  const handleImportComplete = () => {
+    console.log("İçe aktarma tamamlandı, grid yenileniyor...");
+    setIsImporting(false);
+    loadGridData(1); // Grid'i 1. sayfadan yeniden yükle
+  };
 
+  // userSelector (Değişiklik yok)
   const userSelector = (
     <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
       <label htmlFor="user-selector" className="flex items-center gap-2 text-lg font-semibold text-gray-800 mb-2">
@@ -361,21 +351,30 @@ function App() {
         {userSelector}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <div className="lg:col-span-2">
-            <div className="space-y-4">
-              <DateRangeForm onSubmit={handleStartScraping} disabled={isScrapingActive} />
+          <div className="lg:col-span-2 space-y-4">
+            {/* --- YENİ: CsvImporter bileşeni eklendi --- */}
+            <CsvImporter 
+              onImportComplete={handleImportComplete}
+              setIsImporting={setIsImporting}
+              disabled={isScrapingActive || isImporting}
+            />
+            
+            {/* --- GÜNCELLENDİ: disabled durumu --- */}
+            <DateRangeForm 
+              onSubmit={handleStartScraping} 
+              disabled={isScrapingActive || isImporting} 
+            />
 
-              {currentJob && currentJob.status === 'completed' && (
-                <button
-                  onClick={handleContinueFromLast}
-                  disabled={isScrapingActive}
-                  className="w-full bg-orange-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  <Database className="w-5 h-5" />
-                  Continue from Last Date to Today
-                </button>
-              )}
-            </div>
+            {currentJob && currentJob.status === 'completed' && (
+              <button
+                onClick={handleContinueFromLast}
+                disabled={isScrapingActive || isImporting} // Güncellendi
+                className="w-full bg-orange-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <Database className="w-5 h-5" />
+                Continue from Last Date to Today
+              </button>
+            )}
           </div>
           <div>
             <JobProgress job={currentJob} currentProgress={currentProgress} />
@@ -389,9 +388,7 @@ function App() {
           totalRecords={totalRecords}
           onPageChange={handlePageChange}
           allData={allData} 
-          
           currentUser={currentUser} 
-          
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           filterDomain={filterDomain}
@@ -404,7 +401,6 @@ function App() {
           setFilterLanguage={setFilterLanguage}
           filterTitle={filterTitle}
           setFilterTitle={setFilterTitle}
-          
           filterListedurum={filterListedurum}
           setFilterListedurum={setFilterListedurum}
         />
