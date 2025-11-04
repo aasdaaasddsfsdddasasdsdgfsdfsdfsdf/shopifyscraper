@@ -5,7 +5,6 @@ import { DataTable } from './components/DataTable';
 import { supabase, ScrapeJob, ScrapedData } from './lib/supabase';
 import { scrapeDate, addDays, formatDate, saveRecords, updateJobProgress } from './lib/scraper';
 import { Database, UserCheck } from 'lucide-react';
-// --- YENİ: CsvImporter'ı import et ---
 import { CsvImporter } from './components/CsvImporter'; 
 
 const ITEMS_PER_PAGE = 50;
@@ -15,10 +14,7 @@ function App() {
   const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
   const [isScrapingActive, setIsScrapingActive] = useState(false);
   const [currentProgress, setCurrentProgress] = useState('');
-  
-  // --- YENİ STATE: İçe Aktarma Durumu ---
   const [isImporting, setIsImporting] = useState(false);
-  
   const [currentUser, setCurrentUser] = useState('');
   
   const [data, setData] = useState<ScrapedData[]>([]);
@@ -26,6 +22,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
+  // --- FİLTRE STATE'LERİ GÜNCELLENDİ ---
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDomain, setFilterDomain] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
@@ -33,10 +30,19 @@ function App() {
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterTitle, setFilterTitle] = useState('');
   const [filterListedurum, setFilterListedurum] = useState<'all' | 'true' | 'false'>('all');
+  
+  // --- YENİ FİLTRE STATE'LERİ EKLENDİ ---
+  const [filterNiche, setFilterNiche] = useState('');
+  const [filterCiro, setFilterCiro] = useState('');
+  const [filterTrafik, setFilterTrafik] = useState('');
+  const [filterProductCount, setFilterProductCount] = useState<number | ''>('');
+  const [filterApp, setFilterApp] = useState('');
+  const [filterTheme, setFilterTheme] = useState('');
+  // --- BİTTİ ---
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
-  // loadGridData (Değişiklik yok)
+  // --- loadGridData GÜNCELLENDİ (Tüm yeni filtreler eklendi) ---
   const loadGridData = useCallback(async (page: number) => {
     const offset = (page - 1) * ITEMS_PER_PAGE;
 
@@ -44,6 +50,7 @@ function App() {
       .from('scraped_data')
       .select('*, product_details(*)', { count: 'exact' }); 
 
+    // Mevcut Filtreler
     if (filterDomain) pageQuery = pageQuery.ilike('domain', `%${filterDomain}%`);
     if (filterStatus !== 'all') pageQuery = pageQuery.eq('product_details.status', filterStatus);
     if (filterCurrency) pageQuery = pageQuery.ilike('currency', `%${filterCurrency}%`);
@@ -53,8 +60,20 @@ function App() {
       pageQuery = pageQuery.eq('listedurum', filterListedurum === 'true');
     }
 
+    // --- YENİ FİLTRELER UYGULANDI ---
+    if (filterNiche) pageQuery = pageQuery.ilike('niche', `%${filterNiche}%`);
+    if (filterCiro) pageQuery = pageQuery.ilike('ciro', `%${filterCiro}%`);
+    if (filterTrafik) pageQuery = pageQuery.ilike('trafik', `%${filterTrafik}%`);
+    if (filterProductCount !== '') {
+      pageQuery = pageQuery.gte('product_count', filterProductCount); // X'ten büyük veya eşit
+    }
+    if (filterApp) pageQuery = pageQuery.ilike('app', `%${filterApp}%`);
+    if (filterTheme) pageQuery = pageQuery.ilike('theme', `%${filterTheme}%`);
+    // --- BİTTİ ---
+
     if (searchTerm) {
-      const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
+      // Genel aramaya yeni sütunlar da eklenebilir, şimdilik ana sütunlar kalıyor
+      const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`;
       pageQuery = pageQuery.or(searchConditions);
     }
 
@@ -72,10 +91,12 @@ function App() {
       setTotalRecords(count || 0);
     }
 
+    // --- Dışa Aktarım Sorgusu (Güncellendi) ---
     let allDataQuery = supabase
       .from('scraped_data')
       .select('*, product_details(*)');
 
+    // Tüm filtreleri dışa aktarım sorgusuna da uygula
     if (filterDomain) allDataQuery = allDataQuery.ilike('domain', `%${filterDomain}%`);
     if (filterStatus !== 'all') allDataQuery = allDataQuery.eq('product_details.status', filterStatus); 
     if (filterCurrency) allDataQuery = allDataQuery.ilike('currency', `%${filterCurrency}%`);
@@ -84,8 +105,17 @@ function App() {
     if (filterListedurum !== 'all') {
       allDataQuery = allDataQuery.eq('listedurum', filterListedurum === 'true');
     }
+    if (filterNiche) allDataQuery = allDataQuery.ilike('niche', `%${filterNiche}%`);
+    if (filterCiro) allDataQuery = allDataQuery.ilike('ciro', `%${filterCiro}%`);
+    if (filterTrafik) allDataQuery = allDataQuery.ilike('trafik', `%${filterTrafik}%`);
+    if (filterProductCount !== '') {
+      allDataQuery = allDataQuery.gte('product_count', filterProductCount);
+    }
+    if (filterApp) allDataQuery = allDataQuery.ilike('app', `%${filterApp}%`);
+    if (filterTheme) allDataQuery = allDataQuery.ilike('theme', `%${filterTheme}%`);
+    
     if (searchTerm) {
-      const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`; 
+      const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`; 
       allDataQuery = allDataQuery.or(searchConditions);
     }
 
@@ -95,9 +125,13 @@ function App() {
     
     setAllData(fullData as ScrapedData[] || []);
 
-  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle, filterListedurum]); 
+  }, [
+    searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, 
+    filterTitle, filterListedurum, filterNiche, filterCiro, filterTrafik, 
+    filterProductCount, filterApp, filterTheme
+  ]); 
+  // --- YÜKLEME SONU ---
   
-  // loadLatestJob (Değişiklik yok)
   const loadLatestJob = useCallback(async (jobToResume?: ScrapeJob) => {
     const { data: jobs, error } = await supabase
       .from('scrape_jobs')
@@ -124,29 +158,37 @@ function App() {
     }
   }, []); 
 
+  
   useEffect(() => {
     loadLatestJob(); 
     loadGridData(1);  
-  }, []); 
+  }, []); // Sadece ilk yüklemede
 
+  
+  // Filtreler değiştiğinde 1. sayfaya dön
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle, filterListedurum]); 
+  }, [
+    searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, 
+    filterTitle, filterListedurum, filterNiche, filterCiro, filterTrafik, 
+    filterProductCount, filterApp, filterTheme
+  ]); 
 
+  
+  // Sayfa veya filtreler (loadGridData) değiştiğinde veriyi yükle
   useEffect(() => {
     loadGridData(currentPage);
   }, [currentPage, loadGridData]); 
+
 
   const getTodayDateStr = (): string => {
     const today = new Date();
     return formatDate(today);
   };
 
-  // resumeScraping (Değişiklik yok)
   const resumeScraping = async (job: ScrapeJob) => {
-    // ... (kod aynı)
     try {
       const startDate = new Date(job.processing_date);
       const today = new Date(getTodayDateStr());
@@ -194,12 +236,9 @@ function App() {
       setIsScrapingActive(false);
       setCurrentProgress('');
     }
-    // ... (kod aynı)
   };
 
-  // handleStartScraping (Değişiklik yok)
   const handleStartScraping = async (startDate: string, endDate: string) => {
-    // ... (kod aynı)
     try {
       setIsScrapingActive(true);
       const today = getTodayDateStr();
@@ -267,12 +306,9 @@ function App() {
       setIsScrapingActive(false);
       setCurrentProgress('');
     }
-    // ... (kod aynı)
   };
   
-  // handleContinueFromLast (Değişiklik yok)
   const handleContinueFromLast = async () => {
-    // ... (kod aynı)
     if (!currentJob) return;
     try {
       setIsScrapingActive(true);
@@ -295,21 +331,18 @@ function App() {
       console.error('Error continuing scraping:', error);
       setIsScrapingActive(false);
     }
-    // ... (kod aynı)
   };
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
   
-  // --- YENİ: İçe aktarma tamamlandığında tetiklenecek fonksiyon ---
   const handleImportComplete = () => {
     console.log("İçe aktarma tamamlandı, grid yenileniyor...");
     setIsImporting(false);
-    loadGridData(1); // Grid'i 1. sayfadan yeniden yükle
+    loadGridData(1); 
   };
 
-  // userSelector (Değişiklik yok)
   const userSelector = (
     <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
       <label htmlFor="user-selector" className="flex items-center gap-2 text-lg font-semibold text-gray-800 mb-2">
@@ -352,14 +385,12 @@ function App() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div className="lg:col-span-2 space-y-4">
-            {/* --- YENİ: CsvImporter bileşeni eklendi --- */}
             <CsvImporter 
               onImportComplete={handleImportComplete}
               setIsImporting={setIsImporting}
               disabled={isScrapingActive || isImporting}
             />
             
-            {/* --- GÜNCELLENDİ: disabled durumu --- */}
             <DateRangeForm 
               onSubmit={handleStartScraping} 
               disabled={isScrapingActive || isImporting} 
@@ -368,7 +399,7 @@ function App() {
             {currentJob && currentJob.status === 'completed' && (
               <button
                 onClick={handleContinueFromLast}
-                disabled={isScrapingActive || isImporting} // Güncellendi
+                disabled={isScrapingActive || isImporting} 
                 className="w-full bg-orange-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <Database className="w-5 h-5" />
@@ -388,7 +419,10 @@ function App() {
           totalRecords={totalRecords}
           onPageChange={handlePageChange}
           allData={allData} 
+          
           currentUser={currentUser} 
+          
+          // Tüm filtreleri DataTable'a yolla
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           filterDomain={filterDomain}
@@ -403,6 +437,18 @@ function App() {
           setFilterTitle={setFilterTitle}
           filterListedurum={filterListedurum}
           setFilterListedurum={setFilterListedurum}
+          filterNiche={filterNiche}
+          setFilterNiche={setFilterNiche}
+          filterCiro={filterCiro}
+          setFilterCiro={setFilterCiro}
+          filterTrafik={filterTrafik}
+          setFilterTrafik={setFilterTrafik}
+          filterProductCount={filterProductCount}
+          setFilterProductCount={setFilterProductCount}
+          filterApp={filterApp}
+          setFilterApp={setFilterApp}
+          filterTheme={filterTheme}
+          setFilterTheme={setFilterTheme}
         />
       </div>
     </div>
@@ -410,3 +456,4 @@ function App() {
 }
 
 export default App;
+
