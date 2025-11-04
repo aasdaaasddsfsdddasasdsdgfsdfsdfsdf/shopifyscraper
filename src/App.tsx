@@ -42,9 +42,8 @@ function App() {
       }
       if (searchTerm) {
         // --- DÜZELTME BURADA ---
-        // date sütunu `date` tipinde olduğu için `ilike` kullanmadan önce
-        // `::text` ile metne dönüştürülmesi gerekiyor.
-        const searchConditions = `domain.ilike.%${searchTerm}%,products->>title.ilike.%${searchTerm}%,date::text.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
+        // products->>title alanı olmadığı için sorgudan kaldırıldı.
+        const searchConditions = `domain.ilike.%${searchTerm}%,date::text.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
         pageQuery = pageQuery.or(searchConditions);
       }
 
@@ -69,7 +68,7 @@ function App() {
       }
       if (searchTerm) {
         // Düzeltme burada da uygulanıyor
-        const searchConditions = `domain.ilike.%${searchTerm}%,products->>title.ilike.%${searchTerm}%,date::text.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
+        const searchConditions = `domain.ilike.%${searchTerm}%,date::text.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
         allDataQuery = allDataQuery.or(searchConditions);
       }
 
@@ -87,8 +86,12 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, filterDomain, filterStatus]); // Bağımlılıklar doğru
+  }, [searchTerm, filterDomain, filterStatus]);
 
+  // Kalan kod (loadLatestJob, useEffects, resumeScraping, handle... fonksiyonları)
+  // bir önceki adımdaki gibi aynı kalabilir. Hiçbir değişiklik gerekmez.
+
+  // ... (App.tsx dosyasının geri kalanı değişmeden kalır) ...
   const loadLatestJob = useCallback(async (jobToResume?: ScrapeJob) => {
     // ... (değişiklik yok)
     const { data: jobs, error } = await supabase
