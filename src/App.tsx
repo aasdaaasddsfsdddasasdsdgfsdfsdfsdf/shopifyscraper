@@ -1023,7 +1023,8 @@ const DataTable = memo(({
                   {visibleColumns.includes('currency') && <th className={thCell}>Currency</th>}
                   {visibleColumns.includes('language') && <th className={thCell}>Language</th>}
                   {visibleColumns.includes('product_details.status') && <th className={thCell}>Status</th>}
-                  {visibleColumns.includes('product_details.title') && <th className{thCell}>Product Title</th>}
+                  {/* --- HATA DÜZELTİLDİ: {thCell} -> ={thCell} --- */}
+                  {visibleColumns.includes('product_details.title') && <th className={thCell}>Product Title</th>}
                   {visibleColumns.includes('products') && <th className={thCell}>Products</th>}
                   {visibleColumns.includes('inceleyen') && <th className={thCell}>İnceleyen</th>}
                   {visibleColumns.includes('listedurum') && <th className={`${thCell} text-center`}>Listelensin mi?</th>}
