@@ -27,7 +27,7 @@ interface CsvRow {
 // Supabase Admin Client (gizli anahtarı kullanır)
 // Not: Fonksiyon ayarlarından 'SUPABASE_SERVICE_ROLE_KEY' environment değişkenini tanımlamalısınız.
 const supabaseAdmin = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('VITE_SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
