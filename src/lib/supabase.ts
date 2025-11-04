@@ -16,12 +16,18 @@ export interface ScrapeJob {
   updated_at: string;
 }
 
-export interface ProductData {
-  images: string[];
+// YENİ: ProductDetails arayüzü (product_details tablosu için)
+export interface ProductDetails {
+  id: string;
+  scraped_data_id: string;
   status: 'open' | 'closed';
+  title: string; // Title eklendi
+  images: string[];
   error?: string;
+  created_at: string;
 }
 
+// GÜNCELLENDİ: ScrapedData arayüzü
 export interface ScrapedData {
   id: string;
   job_id: string;
@@ -29,6 +35,8 @@ export interface ScrapedData {
   domain: string;
   currency: string;
   language: string;
-  products: ProductData;
   created_at: string;
+  
+  // 'products' alanı 'product_details' ile değiştirildi
+  product_details: ProductDetails; 
 }
