@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Download, FileJson, Search, Loader2, Filter } from 'lucide-react';
 import { ScrapedData } from '../lib/supabase';
 import { exportToCSV, exportToJSON } from '../lib/export';
-// --- YENİ: Checkbox bileşenini import et ---
 import { ListingCheckbox } from './ListingCheckbox'; 
 
 interface DataTableProps {
@@ -13,10 +12,7 @@ interface DataTableProps {
   onPageChange: (page: number) => void;
   allData: ScrapedData[];
   isLoading: boolean;
-  
-  // --- YENİ PROP EKLENDİ ---
   currentUser: string; 
-  
   searchTerm: string;
   setSearchTerm: (value: string) => void;
   filterDomain: string;
@@ -29,8 +25,6 @@ interface DataTableProps {
   setFilterLanguage: (value: string) => void;
   filterTitle: string;
   setFilterTitle: (value: string) => void;
-  
-  // --- YENİ FİLTRE PROPLARI ---
   filterListedurum: 'all' | 'true' | 'false';
   setFilterListedurum: (value: 'all' | 'true' | 'false') => void;
 }
@@ -43,7 +37,7 @@ export function DataTable({
   onPageChange,
   allData,
   isLoading,
-  currentUser, // Prop'u al
+  currentUser, 
   searchTerm,
   setSearchTerm,
   filterDomain,
@@ -56,8 +50,8 @@ export function DataTable({
   setFilterLanguage,
   filterTitle,
   setFilterTitle,
-  filterListedurum, // Prop'u al
-  setFilterListedurum // Prop'u al
+  filterListedurum, 
+  setFilterListedurum 
 }: DataTableProps) {
   
   const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
@@ -66,7 +60,6 @@ export function DataTable({
   const [localFilterCurrency, setLocalFilterCurrency] = useState(filterCurrency);
   const [localFilterLanguage, setLocalFilterLanguage] = useState(filterLanguage);
   const [localFilterTitle, setLocalFilterTitle] = useState(filterTitle);
-  // --- YENİ LOKAL STATE ---
   const [localFilterListedurum, setLocalFilterListedurum] = useState(filterListedurum);
 
 
@@ -77,14 +70,13 @@ export function DataTable({
     setFilterCurrency(localFilterCurrency);
     setFilterLanguage(localFilterLanguage);
     setFilterTitle(localFilterTitle);
-    setFilterListedurum(localFilterListedurum); // Setter'ı çağır
+    setFilterListedurum(localFilterListedurum); 
   };
 
-  // --- GÜNCELLENMİŞ handleFilterClear ---
   const handleFilterClear = () => {
     const isParentStateDirty = searchTerm || filterDomain || filterStatus !== 'all' ||
       filterCurrency || filterLanguage || filterTitle ||
-      filterListedurum !== 'all'; // Kontrol eklendi
+      filterListedurum !== 'all'; 
 
     setLocalSearchTerm('');
     setLocalFilterDomain('');
@@ -92,7 +84,7 @@ export function DataTable({
     setLocalFilterCurrency('');
     setLocalFilterLanguage('');
     setLocalFilterTitle('');
-    setLocalFilterListedurum('all'); // Temizle
+    setLocalFilterListedurum('all'); 
 
     if (isParentStateDirty) {
       setSearchTerm('');
@@ -101,7 +93,7 @@ export function DataTable({
       setFilterCurrency('');
       setFilterLanguage('');
       setFilterTitle('');
-      setFilterListedurum('all'); // Setter'ı çağır
+      setFilterListedurum('all'); 
     }
   };
 
@@ -112,7 +104,7 @@ export function DataTable({
     setLocalFilterCurrency(filterCurrency);
     setLocalFilterLanguage(filterLanguage);
     setLocalFilterTitle(filterTitle);
-    setLocalFilterListedurum(filterListedurum); // Eşitle
+    setLocalFilterListedurum(filterListedurum); 
   }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle, filterListedurum]); 
 
 
@@ -125,6 +117,7 @@ export function DataTable({
     );
   }
 
+  // --- FİLTRE KONTROLLERİ (Değişiklik yok) ---
   const filterControls = (
     <div className="p-4 border-b border-gray-200">
       <div className="flex justify-between items-center mb-4">
@@ -151,7 +144,6 @@ export function DataTable({
         </div>
       </div>
 
-      {/* --- GÜNCELLENMİŞ GRİD YAPISI (5 SÜTUNLU) --- */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
         <div className="relative md:col-span-1">
           <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
@@ -207,7 +199,6 @@ export function DataTable({
           <option value="closed">Closed</option>
         </select>
         
-        {/* --- YENİ FİLTRE: Liselensin mi? --- */}
         <select
           value={localFilterListedurum}
           onChange={(e) => setLocalFilterListedurum(e.target.value as 'all' | 'true' | 'false')}
@@ -217,7 +208,6 @@ export function DataTable({
           <option value="true">Listelenenler</option>
           <option value="false">Listelenmeyenler</option>
         </select>
-        {/* --- BİTTİ --- */}
 
         <button
           onClick={handleFilterApply}
@@ -227,10 +217,9 @@ export function DataTable({
           Filtrele
         </button>
 
-        {/* --- GÜNCELLENMİŞ GÖRÜNÜRLÜK KONTROLÜ --- */}
         {(localSearchTerm || localFilterDomain || localFilterStatus !== 'all' ||
           localFilterCurrency || localFilterLanguage || localFilterTitle ||
-          localFilterListedurum !== 'all' // Kontrol eklendi
+          localFilterListedurum !== 'all'
          ) && (
           <button
             onClick={handleFilterClear}
@@ -251,7 +240,7 @@ export function DataTable({
           <p className="text-gray-500">
             {searchTerm || filterDomain || filterStatus !== 'all' ||
              filterCurrency || filterLanguage || filterTitle ||
-             filterListedurum !== 'all' // Kontrol eklendi
+             filterListedurum !== 'all'
               ? 'Filtrelerinizle eşleşen kayıt bulunamadı.'
               : 'No data available. Start a scraping job to see results.'
             }
@@ -261,13 +250,14 @@ export function DataTable({
     );
   }
 
-  // --- TBODY VE THEAD GÜNCELLENDİ (Yeni sütunlar) ---
+  // --- TBODY VE THEAD GÜNCELLENDİ (Yeni CSV sütunları eklendi) ---
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       {filterControls}
 
-      <div className="">
-        <table className="w-full">
+      {/* Tablonun yatayda kaydırılabilir olması için div eklendi */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1600px]"> {/* Minimum genişlik ayarlandı */}
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -276,6 +266,31 @@ export function DataTable({
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Domain
               </th>
+              
+              {/* --- YENİ SÜTUN BAŞLIKLARI --- */}
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Niche
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Ciro
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Trafik
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Ürün Sayısı
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                App
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Theme
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Ad Link
+              </th>
+              {/* --- BİTTİ --- */}
+
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Currency
               </th>
@@ -291,7 +306,6 @@ export function DataTable({
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Products
               </th>
-              {/* --- YENİ SÜTUN BAŞLIKLARI --- */}
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 İnceleyen
               </th>
@@ -316,6 +330,31 @@ export function DataTable({
                     {row.domain}
                   </a>
                 </td>
+                
+                {/* --- YENİ SÜTUN VERİLERİ --- */}
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {row.niche || '-'}
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {row.ciro || '-'}
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {row.trafik || '-'}
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {row.product_count ?? '-'}
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {row.app || '-'}
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {row.theme || '-'}
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 max-w-xs truncate" title={row.adlink || undefined}>
+                  {row.adlink || '-'}
+                </td>
+                {/* --- BİTTİ --- */}
+
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                   {row.currency || '-'}
                 </td>
@@ -355,7 +394,6 @@ export function DataTable({
                                 target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48"%3E%3Crect fill="%23f0f0f0" width="48" height="48"/%3E%3Ctext x="50%25" y="50%25" font-size="12" fill="%23999" text-anchor="middle" dy=".3em"%3EError%3C/text%3E%3C/svg%3E';
                               }}
                             />
-                            {/* Hover preview (isteğe bağlı) */}
                             <img
                               src={img}
                               alt="Product preview"
@@ -372,7 +410,6 @@ export function DataTable({
                   )}
                 </td>
                 
-                {/* --- YENİ SÜTUN VERİLERİ --- */}
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                   {row.inceleyen || '-'}
                 </td>
