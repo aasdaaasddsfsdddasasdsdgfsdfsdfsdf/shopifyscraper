@@ -2,9 +2,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { CsvParseStream } from 'https://deno.land/std@0.208.0/csv/stream.ts';
 // pooledMap artık kullanılmıyor
 
-// --- DÜZELTME 1: BATCH_SIZE'ı düşürdük ---
-const BATCH_SIZE = 5; // 25'ten 5'e düşürdük
-// CONCURRENCY_LIMIT kaldırıldı
+// --- DÜZELTME: BATCH_SIZE'ı 1'e düşürdük ---
+const BATCH_SIZE = 1; // Her çağrıda sadece 1 satır işle
+// --- DÜZELTME SONU ---
 
 interface CsvRow {
   domain: string;
@@ -137,14 +137,12 @@ Deno.serve(async (req) => {
     // 4. Batch'i işle (eğer satır varsa)
     if (!reachedEndOfFile) {
       
-      // --- DÜZELTME 2: Paralel (pooledMap) yerine Seri (serial) işleme ---
+      // BATCH_SIZE = 1 olduğu için, pooledMap'e gerek yok, direkt seri işleme
       console.log(`[Job ${jobId}] ${rowsToProcess.length} satır SERİ olarak işleniyor...`);
       for (const row of rowsToProcess) {
-        // Her satırı SIRA SIRA, bekleyerek işle (await)
         await processRow(row, jobId);
       }
       console.log(`[Job ${jobId}] Batch ${batchIndex} tamamlandı.`);
-      // --- DÜZELTME SONU ---
     
       // 5. Bir sonraki batch'i tetikle
       const nextBatchIndex = batchIndex + 1;
