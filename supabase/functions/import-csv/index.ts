@@ -27,7 +27,7 @@ interface CsvRow {
 // Supabase Admin Client (gizli anahtarı kullanır)
 // Not: Fonksiyon ayarlarından 'SUPABASE_SERVICE_ROLE_KEY' environment değişkenini tanımlamalısınız.
 const supabaseAdmin = createClient(
-  Deno.env.get('VITE_SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_URL') ?? '', // <--- DÜZELTME 1 (VITE_ öneki kaldırıldı)
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
 
     // 5. Bir sonraki batch'i tetikle
     const nextBatchIndex = batchIndex + 1;
-    const functionUrl = `${Deno.env.get('VITE_SUPABASE_URL')}/functions/v1/import-csv`;
+    const functionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/import-csv`; // <--- DÜZELTME 2 (VITE_ öneki kaldırıldı)
     
     // ÖNEMLİ: Yeni fonksiyonu 'await' KULLANMADAN çağırıyoruz (fire-and-forget)
     // Bu sayede mevcut fonksiyon 60 saniye dolmadan yanıt dönebilir.
