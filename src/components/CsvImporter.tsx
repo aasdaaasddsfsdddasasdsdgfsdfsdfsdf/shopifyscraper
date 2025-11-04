@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Papa from 'papaparse';
-import { supabase } from 'npm run dev -- --force/lib/supabase';
+// --- DÜZELTME: Import yolu düzeltildi ---
+import { supabase } from '../lib/supabase';
 import { Loader2, UploadCloud, CheckCircle, XCircle } from 'lucide-react';
 
 interface CsvRow {
@@ -19,11 +20,8 @@ interface CsvRow {
 }
 
 interface CsvImporterProps {
-  // Veri aktarımı tamamlandığında App.tsx'teki grid'i yenilemek için
   onImportComplete: () => void;
-  // Aktarım sırasında diğer butonları (örn: Scrape) devre dışı bırakmak için
   setIsImporting: (isImporting: boolean) => void;
-  // Başka bir işlem (örn: scraping) çalışıyorsa butonu devre dışı bırak
   disabled: boolean;
 }
 
