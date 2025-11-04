@@ -771,6 +771,7 @@ const DataTable = memo(({
     filterProps.setFilterTheme('');
   };
 
+ // ... (DataTable bileşeni içi)
   useEffect(() => {
     setLocalSearchTerm(filterProps.searchTerm);
     setLocalFilterDomain(filterProps.filterDomain);
@@ -785,8 +786,21 @@ const DataTable = memo(({
     setLocalFilterProductCount(filterProps.filterProductCount);
     setLocalFilterApp(filterProps.filterApp);
     setLocalFilterTheme(filterProps.filterTheme);
-  }, [filterProps]); 
-
+  }, [
+      filterProps.searchTerm,
+      filterProps.filterDomain,
+      filterProps.filterStatus,
+      filterProps.filterCurrency,
+      filterProps.filterLanguage,
+      filterProps.filterTitle,
+      filterProps.filterListedurum,
+      filterProps.filterNiche,
+      filterProps.filterCiro,
+      filterProps.filterTrafik,
+      filterProps.filterProductCount,
+      filterProps.filterApp,
+      filterProps.filterTheme
+  ]); // <--- DÜZELTME BURADA
   const toggleColumn = (key: string) => {
     setVisibleColumns(prev => 
       prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]
