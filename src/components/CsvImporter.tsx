@@ -16,6 +16,7 @@ interface CsvRow {
   trafik?: string;
   app?: string;
   theme?: string;
+  currency?: string; // Currency (para birimi) alanı eklendi
 }
 
 interface CsvImporterProps {
@@ -51,7 +52,7 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
 
     let csvJobId: string | null = null;
     try {
-      // --- DÜZELTME: "csv-import" için gerçek bir job kaydı oluştur ---
+      // "csv-import" için gerçek bir job kaydı oluştur
       const today = new Date().toISOString().split('T')[0];
       const { data: jobData, error: jobError } = await supabase
         .from('scrape_jobs')
@@ -59,20 +60,16 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
           start_date: today,
           end_date: today,
           processing_date: today,
-          status: 'completed', // CSV import anında bitti sayılır
-          total_records: 0, // Daha sonra güncellenecek
+          status: 'completed',
+          total_records: 0,
         })
         .select('id')
         .single();
       
       if (jobError) throw new Error(`CSV için 'job' kaydı oluşturulamadı: ${jobError.message}`);
-      // --- DÜZELTME (Sintaks Hatası Giderildi) ---
-      // Hata mesajındaki tek tırnak ('job') çakışıyordu, çift tırnak ile düzeltildi.
       if (!jobData) throw new Error("CSV 'job' ID'si alınamadı.");
-      // --- DÜZELTME SONU ---
       
       csvJobId = jobData.id;
-      // --- DÜZELTME SONU ---
 
     } catch (err: any) {
       setError(`Başlangıç hatası: ${err.message}`);
@@ -86,7 +83,7 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
       complete: async (results) => {
         const rows = results.data;
         setTotal(rows.length);
-        let successfulRows = 0; // Başarılı eklenen satırları say
+        let successfulRows = 0;
 
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i];
@@ -98,7 +95,7 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
           }
 
           try {
-            // --- (SELECT-THEN-UPDATE/INSERT) ---
+            // (SELECT-THEN-UPDATE/INSERT)
 
             let scrapedDataId: string | null = null;
             
@@ -112,6 +109,7 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
               throw new Error(`scraped_data ARAMA Hatası: ${selectError.message}`);
             }
 
+            // --- GÜNCELLENDİ: `currency` alanı eklendi ---
             const dataToInsertOrUpdate = {
               domain: row.domain,
               ciro: row.ciro || null,
@@ -121,10 +119,11 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
               trafik: row.trafik || null,
               app: row.app || null,
               theme: row.theme || null,
+              currency: row.currency || null, // <-- DÜZELTME BURADA
               date: new Date().toISOString().split('T')[0],
-              // --- DÜZELTME: Gerçek UUID'yi kullan ---
-              job_id: csvJobId, 
+              job_id: csvJobId,
             };
+            // --- GÜNCELLEME SONU ---
 
             if (existingData) {
               scrapedDataId = existingData.id;
@@ -155,7 +154,6 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
               console.log(`[Satır ${i + 1}] Eklendi: ${row.domain}`);
             }
             
-            // 3. ADIM: `product_details`'i EKLE/GÜNCELLE (UPSERT)
             const images = [row.image1, row.image2, row.image3].filter(Boolean) as string[];
 
             const { error: productDetailsError } = await supabase
@@ -174,7 +172,7 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
               throw new Error(`product_details Hatası: ${productDetailsError.message}`);
             }
 
-            successfulRows++; // Başarılıysa sayacı artır
+            successfulRows++;
 
           } catch (err: any) {
             setError(`[Satır ${i + 1} - ${row.domain}] Hata: ${err.message}. İşlem durduruldu.`);
@@ -183,14 +181,12 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
           }
         }
         
-        // --- DÜZELTME: Oluşturulan 'job' kaydını güncelle ---
         if (csvJobId) {
           await supabase
             .from('scrape_jobs')
             .update({ total_records: successfulRows })
             .eq('id', csvJobId);
         }
-        // --- DÜZELTME SONU ---
         
         setSuccess(`${successfulRows} satır başarıyla işlendi.`);
         setIsImporting(false);
@@ -240,7 +236,6 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
         </button>
       </div>
 
-      {/* İlerleme ve Durum Mesajları */}
       {isLoading && (
         <div className="mt-4">
           <div className="flex justify-between text-sm font-medium text-gray-700 mb-1">
