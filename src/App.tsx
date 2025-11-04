@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { createClient } from '@supabase/supabase-js';
-// Papa.parse artık CsvImporter'da kullanılmıyor, gerekirse kaldırılabilir
-// import Papa from 'papaparse'; 
+// PapaParse ve CsvImporter ile ilgili her şey kaldırıldı
 import { 
-  Database, UserCheck, Loader2, UploadCloud, CheckCircle, XCircle, 
+  Database, UserCheck, Loader2, CheckCircle, XCircle, 
   ChevronLeft, ChevronRight, Download, FileJson, Search, Filter, 
-  ExternalLink, Settings2, EyeOff, CheckCheck, Pause, Calendar, PlayCircle, X 
+  ExternalLink, Settings2, X 
 } from 'lucide-react';
 
 // =================================================================================
@@ -16,29 +15,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// ... (Arayüzler: ScrapeJob, ProductDetails, ScrapedData) ...
-// (Bu arayüzler bir önceki cevaptaki ile aynı, yer kazanmak için kısaltıldı)
-export interface ScrapeJob {
-  id: string;
-  start_date: string;
-  end_date: string;
-  processing_date: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
-  total_records: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ProductDetails {
-  id: string;
-  scraped_data_id: string;
-  status: 'open' | 'closed';
-  title: string;
-  images: string[];
-  error?: string;
-  created_at: string;
-}
-
+// --- GÜNCELLENDİ: Artık tek bir ScrapedData arayüzü var ---
 export interface ScrapedData {
   id: string;
   job_id: string;
@@ -47,9 +24,10 @@ export interface ScrapedData {
   currency: string | null;
   language: string | null;
   created_at: string;
-  product_details: ProductDetails; 
+  
   listedurum: boolean;
   inceleyen: string | null;
+  
   ciro: string | null;
   adlink: string | null;
   niche: string | null;
@@ -57,13 +35,18 @@ export interface ScrapedData {
   trafik: string | null;
   app: string | null;
   theme: string | null;
+
+  // --- YENİ EKLENEN SÜTUNLAR ---
+  product_status: 'open' | 'closed' | null;
+  product_title: string | null;
+  product_images: string[] | null;
+  product_error: string | null;
 }
 
+// =================================================================================
+// 2. EXPORT FONKSİYONLARI (GÜNCELLENDİ)
+// =================================================================================
 
-// =================================================================================
-// 2. EXPORT FONKSİYONLARI
-// =================================================================================
-// (Bu fonksiyonlar bir önceki cevaptaki ile aynı, yer kazanmak için kısaltıldı)
 function escapeCSV(value: string | null | undefined | number | boolean): string {
   if (value === null || value === undefined) return '';
   const stringValue = String(value);
@@ -85,56 +68,75 @@ function downloadFile(content: string, filename: string, mimeType: string): void
   URL.revokeObjectURL(url);
 }
 
+// --- GÜNCELLENDİ: Düz yapıdan veri okuyor ---
 export function exportToCSV(data: ScrapedData[]): void {
   if (data.length === 0) return;
+
   const headers = [
     'date', 'domain', 'niche', 'ciro', 'trafik', 'product_count', 'app', 
     'theme', 'adlink', 'currency', 'language', 'status', 'title', 
     'images', 'listedurum', 'inceleyen'
   ];
   const csvRows = [headers.join(',')];
+
   for (const row of data) {
-    const p = row.product_details; 
     const values = [
-      row.date, escapeCSV(row.domain), escapeCSV(row.niche), escapeCSV(row.ciro),
-      escapeCSV(row.trafik), escapeCSV(row.product_count), escapeCSV(row.app),
-      escapeCSV(row.theme), escapeCSV(row.adlink), escapeCSV(row.currency),
-      escapeCSV(row.language), escapeCSV(p?.status), escapeCSV(p?.title),
-      escapeCSV(p?.images?.join(' | ')), String(row.listedurum), escapeCSV(row.inceleyen),
+      row.date,
+      escapeCSV(row.domain),
+      escapeCSV(row.niche),
+      escapeCSV(row.ciro),
+      escapeCSV(row.trafik),
+      escapeCSV(row.product_count),
+      escapeCSV(row.app),
+      escapeCSV(row.theme),
+      escapeCSV(row.adlink),
+      escapeCSV(row.currency),
+      escapeCSV(row.language),
+      escapeCSV(row.product_status), // Düzeltildi
+      escapeCSV(row.product_title),  // Düzeltildi
+      escapeCSV(row.product_images?.join(' | ')), // Düzeltildi
+      String(row.listedurum),
+      escapeCSV(row.inceleyen),
     ];
     csvRows.push(values.join(','));
   }
+
   const csvContent = csvRows.join('\n');
   downloadFile(csvContent, 'scraped-data.csv', 'text/csv');
 }
 
+// --- GÜNCELLENDİ: Düz yapıdan veri okuyor ---
 export function exportToJSON(data: ScrapedData[]): void {
   const jsonData = data.map(row => ({
-    date: row.date, domain: row.domain, niche: row.niche, ciro: row.ciro,
-    trafik: row.trafik, product_count: row.product_count, app: row.app,
-    theme: row.theme, adlink: row.adlink, currency: row.currency,
-    language: row.language, listedurum: row.listedurum, inceleyen: row.inceleyen,
-    product_status: row.product_details?.status,
-    product_title: row.product_details?.title,
-    product_images: row.product_details?.images,
-    product_error: row.product_details?.error,
+    date: row.date,
+    domain: row.domain,
+    niche: row.niche,
+    ciro: row.ciro,
+    trafik: row.trafik,
+    product_count: row.product_count,
+    app: row.app,
+    theme: row.theme,
+    adlink: row.adlink,
+    currency: row.currency,
+    language: row.language,
+    listedurum: row.listedurum,
+    inceleyen: row.inceleyen,
+    product_status: row.product_status, // Düzeltildi
+    product_title: row.product_title,   // Düzeltildi
+    product_images: row.product_images, // Düzeltildi
+    product_error: row.product_error,     // Düzeltildi
   }));
+
   const jsonContent = JSON.stringify(jsonData, null, 2);
   downloadFile(jsonContent, 'scraped-data.json', 'application/json');
 }
 
-// =================================================================================
-// 3. SCRAPER FONKSİYONLARI (ARTIK KULLANILMIYOR)
-// =================================================================================
-// (Scraper fonksiyonları (scrapeDate, saveRecords, vb.) kaldırıldı)
-// ...
 
 // =================================================================================
 // 4. BİLEŞENLER (COMPONENTS)
 // =================================================================================
 
-// --- ListingCheckbox Bileşeni ---
-// (Değişiklik yok)
+// --- ListingCheckbox Bileşeni (Değişiklik yok) ---
 interface ListingCheckboxProps {
   rowId: string;
   initialValue: boolean;
@@ -169,8 +171,7 @@ const ListingCheckbox = memo(({ rowId, initialValue, currentUser }: ListingCheck
   );
 });
 
-// --- ImageModal Bileşeni ---
-// (Değişiklik yok)
+// --- ImageModal Bileşeni (Değişiklik yok) ---
 interface ImageModalProps { imageUrl: string; onClose: () => void; }
 const ImageModal = memo(({ imageUrl, onClose }: ImageModalProps) => {
   return (
@@ -185,153 +186,10 @@ const ImageModal = memo(({ imageUrl, onClose }: ImageModalProps) => {
   );
 });
 
-// --- CsvImporter Bileşeni (YENİ MİMARİ - DÜZELTİLMİŞ) ---
-interface CsvImporterProps {
-  onImportStart: () => void;
-  disabled: boolean;
-}
-
-const CsvImporter = memo(({ onImportStart, disabled }: CsvImporterProps) => {
-  const [file, setFile] = useState<File | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
-      setError(null);
-      setSuccess(null);
-    }
-  };
-
-  const handleImport = async () => {
-    if (!file) return;
-
-    setIsLoading(true);
-    setError(null);
-    setSuccess(null);
-    onImportStart(); 
-
-    try {
-      // 1. Dosyayı Storage'a yükle
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${crypto.randomUUID()}.${fileExt}`;
-      
-      // --- DÜZELTME BURADA ---
-      // "public/" öneki kaldırıldı. Dosya direkt kovanın kök dizinine yüklenecek.
-      const filePath = fileName;
-      // --- DÜZELTME SONU ---
-
-      const { error: uploadError } = await supabase.storage
-        .from('csv-uploads')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw new Error(`Storage yükleme hatası: ${uploadError.message}`);
-      }
-
-      // 2. İşlenecek 'job' kaydını oluştur
-      const today = new Date().toISOString().split('T')[0];
-      const { data: jobData, error: jobError } = await supabase
-        .from('scrape_jobs')
-        .insert({
-          start_date: today,
-          end_date: today,
-          processing_date: today,
-          status: 'in_progress',
-          total_records: 0,
-        })
-        .select('id')
-        .single();
-      
-      if (jobError) {
-        // Storage'a yüklenen dosyayı geri sil (hata oluştu)
-        await supabase.storage.from('csv-uploads').remove([filePath]);
-        throw new Error(`Job oluşturma hatası: ${jobError.message}`);
-      }
-      if (!jobData) throw new Error("Job ID alınamadı.");
-      
-      const jobId = jobData.id;
-
-      // 3. Arka plan fonksiyonunu tetikle (ilk batch için)
-      const { error: functionError } = await supabase.functions.invoke('import-csv', {
-        body: {
-          jobId: jobId,
-          filePath: filePath, // Storage'daki dosya yolu
-          batchIndex: 0,      // İlk batch'ten başla
-        },
-      });
-
-      if (functionError) {
-        // Fonksiyon tetikleme başarısız olursa job'u 'failed' yap
-        await supabase.from('scrape_jobs').update({ status: 'failed' }).eq('id', jobId);
-        // Storage'a yüklenen dosyayı geri sil
-        await supabase.storage.from('csv-uploads').remove([filePath]);
-        throw new Error(`Fonksiyon tetikleme hatası: ${functionError.message}`);
-      }
-
-      // 4. Kullanıcıyı bilgilendir
-      setSuccess("CSV dosyası alındı. Veri işleme arka planda başladı. Bu sekmeyi kapatabilirsiniz. Grid birazdan otomatik olarak güncellenecektir.");
-      setFile(null); 
-
-    } catch (err: any) {
-      setError(`İçe aktarma başarısız: ${err.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-      <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-        <UploadCloud className="w-5 h-5" />
-        Toplu Veri İçe Aktarma (CSV)
-      </h2>
-      
-      <div className="flex gap-4">
-        <input
-          type="file"
-          accept=".csv"
-          onChange={handleFileChange}
-          disabled={isLoading || disabled}
-          className="block w-full text-sm text-gray-500
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-lg file:border-0
-            file:text-sm file:font-semibold
-            file:bg-blue-50 file:text-blue-700
-            hover:file:bg-blue-100
-            disabled:opacity-50"
-        />
-        <button
-          onClick={handleImport}
-          disabled={!file || isLoading || disabled}
-          className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <UploadCloud className="w-5 h-5" />}
-          Arka Plana Gönder
-        </button>
-      </div>
-
-      {success && (
-        <div className="mt-4 flex items-center gap-2 text-sm text-green-600 p-3 bg-green-50 rounded-lg">
-          <CheckCircle className="w-5 h-5" />
-          {success}
-        </div>
-      )}
-      {error && (
-        <div className="mt-4 flex items-center gap-2 text-sm text-red-600 p-3 bg-red-50 rounded-lg">
-          <XCircle className="w-5 h-5" />
-          {error}
-        </div>
-      )}
-    </div>
-  );
-});
+// --- CsvImporter Bileşeni SİLİNDİ ---
 
 
-// --- DataTable Bileşeni ---
-// (Bir önceki cevaptaki ile aynı, filtre düzeltmesi ve 'inceleyen' filtresi dahil)
+// --- DataTable Bileşeni (GÜNCELLENDİ) ---
 const ALL_COLUMNS = [
   { key: 'date', label: 'Date', defaultVisible: true },
   { key: 'domain', label: 'Domain', defaultVisible: true },
@@ -344,9 +202,9 @@ const ALL_COLUMNS = [
   { key: 'adlink', label: 'Ad Link', defaultVisible: true },
   { key: 'currency', label: 'Currency', defaultVisible: false },
   { key: 'language', label: 'Language', defaultVisible: false },
-  { key: 'product_details.status', label: 'Status', defaultVisible: true },
-  { key: 'product_details.title', label: 'Product Title', defaultVisible: true },
-  { key: 'products', label: 'Products', defaultVisible: true },
+  { key: 'product_status', label: 'Status', defaultVisible: true },    // Düzeltildi
+  { key: 'product_title', label: 'Product Title', defaultVisible: true }, // Düzeltildi
+  { key: 'product_images', label: 'Products', defaultVisible: true }, // Düzeltildi
   { key: 'inceleyen', label: 'İnceleyen', defaultVisible: true },
   { key: 'listedurum', label: 'Listelensin mi?', defaultVisible: true },
 ];
@@ -393,6 +251,7 @@ interface DataTableProps {
   setFilterInceleyen: (value: 'all' | string) => void;
 }
 
+// (DataTable bileşeninin içeriği bir önceki cevapla aynı, sadece JSX render kısmı güncellendi)
 const DataTable = memo(({
   data,
   currentPage,
@@ -412,6 +271,7 @@ const DataTable = memo(({
   const [showColumnManager, setShowColumnManager] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
+  // ... (Tüm local filter state'leri) ...
   const [localSearchTerm, setLocalSearchTerm] = useState(filterProps.searchTerm);
   const [localFilterDomain, setLocalFilterDomain] = useState(filterProps.filterDomain);
   const [localFilterStatus, setLocalFilterStatus] = useState(filterProps.filterStatus);
@@ -427,6 +287,7 @@ const DataTable = memo(({
   const [localFilterTheme, setLocalFilterTheme] = useState(filterProps.filterTheme);
   const [localFilterInceleyen, setLocalFilterInceleyen] = useState(filterProps.filterInceleyen);
 
+  // ... (handleFilterApply ve handleFilterClear fonksiyonları) ...
   const handleFilterApply = () => {
     filterProps.setSearchTerm(localSearchTerm);
     filterProps.setFilterDomain(localFilterDomain);
@@ -445,38 +306,20 @@ const DataTable = memo(({
   };
 
   const handleFilterClear = () => {
-    setLocalSearchTerm('');
-    setLocalFilterDomain('');
-    setLocalFilterStatus('all');
-    setLocalFilterCurrency('');
-    setLocalFilterLanguage('');
-    setLocalFilterTitle('');
-    setLocalFilterListedurum('all');
-    setLocalFilterNiche('');
-    setLocalFilterCiro('');
-    setLocalFilterTrafik('');
-    setLocalFilterProductCount('');
-    setLocalFilterApp('');
-    setLocalFilterTheme('');
-    setLocalFilterInceleyen('all');
+    setLocalSearchTerm(''); setLocalFilterDomain(''); setLocalFilterStatus('all');
+    setLocalFilterCurrency(''); setLocalFilterLanguage(''); setLocalFilterTitle('');
+    setLocalFilterListedurum('all'); setLocalFilterNiche(''); setLocalFilterCiro('');
+    setLocalFilterTrafik(''); setLocalFilterProductCount(''); setLocalFilterApp('');
+    setLocalFilterTheme(''); setLocalFilterInceleyen('all');
 
-    filterProps.setSearchTerm('');
-    filterProps.setFilterDomain('');
-    filterProps.setFilterStatus('all');
-    filterProps.setFilterCurrency('');
-    filterProps.setFilterLanguage('');
-    filterProps.setFilterTitle('');
-    filterProps.setFilterListedurum('all');
-    filterProps.setFilterNiche('');
-    filterProps.setFilterCiro('');
-    filterProps.setFilterTrafik('');
-    filterProps.setFilterProductCount('');
-    filterProps.setFilterApp('');
-    filterProps.setFilterTheme('');
-    filterProps.setFilterInceleyen('all');
+    filterProps.setSearchTerm(''); filterProps.setFilterDomain(''); filterProps.setFilterStatus('all');
+    filterProps.setFilterCurrency(''); filterProps.setFilterLanguage(''); filterProps.setFilterTitle('');
+    filterProps.setFilterListedurum('all'); filterProps.setFilterNiche(''); filterProps.setFilterCiro('');
+    filterProps.setFilterTrafik(''); filterProps.setFilterProductCount(''); filterProps.setFilterApp('');
+    filterProps.setFilterTheme(''); filterProps.setFilterInceleyen('all');
   };
 
-  // Düzeltilmiş useEffect (bağımlılık dizisi)
+  // ... (useEffect - filtre senkronizasyonu) ...
   useEffect(() => {
     setLocalSearchTerm(filterProps.searchTerm);
     setLocalFilterDomain(filterProps.filterDomain);
@@ -506,6 +349,7 @@ const DataTable = memo(({
     );
   };
 
+  // ... (filterControls JSX - Değişiklik yok) ...
   const filterControls = (
     <div className="p-4 border-b border-gray-200">
       <div className="flex justify-between items-center mb-4">
@@ -513,7 +357,7 @@ const DataTable = memo(({
           Scraped Data ({totalRecords.toLocaleString()} records)
         </h3>
         <div className="flex gap-2">
-          {/* ... Sütun Yönetimi ... */}
+          {/* Sütun Yönetimi */}
           <div className="relative">
             <button
               onClick={() => setShowColumnManager(!showColumnManager)}
@@ -550,7 +394,7 @@ const DataTable = memo(({
               </div>
             )}
           </div>
-          {/* ... Export Butonları ... */}
+          {/* Export Butonları */}
           <button
             onClick={() => exportToCSV(allData)}
             disabled={allData.length === 0}
@@ -564,7 +408,7 @@ const DataTable = memo(({
         </div>
       </div>
       
-      {/* ... Filtre Inputları ... */}
+      {/* Filtre Inputları */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         <div className="relative md:col-span-2">
           <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
@@ -610,8 +454,6 @@ const DataTable = memo(({
     </div>
   );
   
-  // ... (Geri kalan JSX: No data, Loading, Table, Pagination) ...
-  // (Değişiklik yok, yer kazanmak için kısaltıldı)
   if (!isLoading && totalRecords === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -625,7 +467,7 @@ const DataTable = memo(({
                      (val !== 'all' && typeof val !== 'function');
             })
               ? 'Filtrelerinizle eşleşen kayıt bulunamadı.'
-              : 'No data available. Start a CSV import to see results.'
+              : 'Veri bulunamadı. Veritabanı panelinden CSV yükleyebilirsiniz.' // Mesaj güncellendi
             }
           </p>
         </div>
@@ -664,9 +506,9 @@ const DataTable = memo(({
                   {visibleColumns.includes('adlink') && <th className={thCell}>Ad Link</th>}
                   {visibleColumns.includes('currency') && <th className={thCell}>Currency</th>}
                   {visibleColumns.includes('language') && <th className={thCell}>Language</th>}
-                  {visibleColumns.includes('product_details.status') && <th className={thCell}>Status</th>}
-                  {visibleColumns.includes('product_details.title') && <th className={thCell}>Product Title</th>}
-                  {visibleColumns.includes('products') && <th className={thCell}>Products</th>}
+                  {visibleColumns.includes('product_status') && <th className={thCell}>Status</th>}       {/* Düzeltildi */}
+                  {visibleColumns.includes('product_title') && <th className={thCell}>Product Title</th>}  {/* Düzeltildi */}
+                  {visibleColumns.includes('product_images') && <th className={thCell}>Products</th>}     {/* Düzeltildi */}
                   {visibleColumns.includes('inceleyen') && <th className={thCell}>İnceleyen</th>}
                   {visibleColumns.includes('listedurum') && <th className={`${thCell} text-center`}>Listelensin mi?</th>}
                 </tr>
@@ -674,6 +516,7 @@ const DataTable = memo(({
               <tbody className="bg-white divide-y divide-gray-200">
                 {data.map((row) => (
                   <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+                    
                     {visibleColumns.includes('date') && <td className={`${tdCell} whitespace-nowrap`}>{row.date}</td>}
                     {visibleColumns.includes('domain') && (
                       <td className={`${tdCell} whitespace-nowrap`}>
@@ -699,23 +542,29 @@ const DataTable = memo(({
                     )}
                     {visibleColumns.includes('currency') && <td className={`${tdCell} whitespace-nowrap`}>{row.currency || '-'}</td>}
                     {visibleColumns.includes('language') && <td className={`${tdCell} whitespace-nowrap`}>{row.language || '-'}</td>}
-                    {visibleColumns.includes('product_details.status') && (
+                    
+                    {/* --- GÜNCELLENDİ: Düz yapıdan okuma --- */}
+                    {visibleColumns.includes('product_status') && (
                       <td className={`${tdCell} whitespace-nowrap`}>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${row.product_details?.status === 'open' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                          {row.product_details?.status?.toUpperCase() || 'BİLİNMİYOR'}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          row.product_status === 'open'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {row.product_status?.toUpperCase() || 'BİLİNMİYOR'}
                         </span>
                       </td>
                     )}
-                    {visibleColumns.includes('product_details.title') && (
-                      <td className={`${tdCell} max-w-xs truncate`} title={row.product_details?.title}>
-                        {row.product_details?.title || '-'}
+                    {visibleColumns.includes('product_title') && (
+                      <td className={`${tdCell} max-w-xs truncate`} title={row.product_title || undefined}>
+                        {row.product_title || '-'}
                       </td>
                     )}
-                    {visibleColumns.includes('products') && (
+                    {visibleColumns.includes('product_images') && (
                       <td className={tdCell}>
-                        {row.product_details?.status === 'open' && row.product_details?.images?.length > 0 ? (
+                        {row.product_status === 'open' && row.product_images && row.product_images.length > 0 ? (
                           <div className="flex gap-2">
-                            {row.product_details.images.map((img, idx) => (
+                            {row.product_images.map((img, idx) => (
                               <img
                                 key={idx} src={img} alt={`Product ${idx + 1}`}
                                 className="w-12 h-12 rounded object-cover border border-gray-200 hover:border-blue-500 transition-colors cursor-pointer"
@@ -724,9 +573,11 @@ const DataTable = memo(({
                               />
                             ))}
                           </div>
-                        ) : (<span className="text-gray-500 text-sm">{row.product_details?.status === 'closed' ? 'KAPALI' : 'No images'}</span>)}
+                        ) : (<span className="text-gray-500 text-sm">{row.product_status === 'closed' ? 'KAPALI' : 'No images'}</span>)}
                       </td>
                     )}
+                    {/* --- GÜNCELLEME SONU --- */}
+                    
                     {visibleColumns.includes('inceleyen') && <td className={`${tdCell} whitespace-nowrap`}>{row.inceleyen || '-'}</td>}
                     {visibleColumns.includes('listedurum') && (
                       <td className={`${tdCell} text-center`}>
@@ -765,14 +616,14 @@ const DataTable = memo(({
 
 
 // =================================================================================
-// 5. ANA APP BİLEŞENİ
+// 5. ANA APP BİLEŞENİ (GÜNCELLENDİ)
 // =================================================================================
 
 const ITEMS_PER_PAGE = 50;
 const REVIEWERS = ['Efkan', 'Mert', 'Furkan'];
 
 function App() {
-  const [isImporting, setIsImporting] = useState(false); // CSV arka planda işlenirken true olacak
+  // --- CsvImporter ve isImporting state'i SİLİNDİ ---
   const [currentUser, setCurrentUser] = useState('');
   
   const [data, setData] = useState<ScrapedData[]>([]);
@@ -781,7 +632,7 @@ function App() {
   const [totalRecords, setTotalRecords] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- Tüm Filtre State'leri ---
+  // --- Tüm Filtre State'leri (Değişiklik yok) ---
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDomain, setFilterDomain] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
@@ -799,35 +650,40 @@ function App() {
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
-  // --- Veri Yükleme Fonksiyonu ---
+  // --- Veri Yükleme Fonksiyonu (GÜNCELLENDİ) ---
   const loadGridData = useCallback(async (page: number) => {
     setIsLoading(true);
     const offset = (page - 1) * ITEMS_PER_PAGE;
 
+    // --- GÜNCELLENDİ: Select sorgusu basitleştirildi ---
     let pageQuery = supabase
       .from('scraped_data')
-      .select('*, product_details(*)', { count: 'exact' }); 
+      .select('*', { count: 'exact' }); 
 
-    // ... (Filtreler) ...
+    // --- GÜNCELLENDİ: Filtreler 'product_details.' öneki olmadan çalışıyor ---
     if (filterDomain) pageQuery = pageQuery.ilike('domain', `%${filterDomain}%`);
-    if (filterStatus !== 'all') pageQuery = pageQuery.eq('product_details.status', filterStatus);
+    if (filterStatus !== 'all') pageQuery = pageQuery.eq('product_status', filterStatus); // Düzeltildi
     if (filterCurrency) pageQuery = pageQuery.ilike('currency', `%${filterCurrency}%`);
     if (filterLanguage) pageQuery = pageQuery.ilike('language', `%${filterLanguage}%`);
-    if (filterTitle) pageQuery = pageQuery.ilike('product_details.title', `%${filterTitle}%`);
-    if (filterListedurum !== 'all') pageQuery = pageQuery.eq('listedurum', filterListedurum === 'true');
+    if (filterTitle) pageQuery = pageQuery.ilike('product_title', `%${filterTitle}%`); // Düzeltildi
+    if (filterListedurum !== 'all') {
+      pageQuery = pageQuery.eq('listedurum', filterListedurum === 'true');
+    }
     if (filterNiche) pageQuery = pageQuery.ilike('niche', `%${filterNiche}%`);
     if (filterCiro) pageQuery = pageQuery.ilike('ciro', `%${filterCiro}%`);
     if (filterTrafik) pageQuery = pageQuery.ilike('trafik', `%${filterTrafik}%`);
-    if (filterProductCount !== '') pageQuery = pageQuery.gte('product_count', filterProductCount);
+    if (filterProductCount !== '') {
+      pageQuery = pageQuery.gte('product_count', filterProductCount);
+    }
     if (filterApp) pageQuery = pageQuery.ilike('app', `%${filterApp}%`);
     if (filterTheme) pageQuery = pageQuery.ilike('theme', `%${filterTheme}%`);
     if (filterInceleyen !== 'all') pageQuery = pageQuery.eq('inceleyen', filterInceleyen);
 
     if (searchTerm) {
-      const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`;
+      // Düzeltildi
+      const searchConditions = `domain.ilike.%${searchTerm}%,product_title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`;
       pageQuery = pageQuery.or(searchConditions);
     }
-    // ... (Filtreler Bitiş) ...
 
     const { data: pageData, error: dataError, count } = await pageQuery
       .order('date', { ascending: false })
@@ -836,35 +692,47 @@ function App() {
 
     if (dataError) {
       console.error('Error loading data:', dataError);
-      setData([]); setTotalRecords(0);
+      setData([]);
+      setTotalRecords(0);
     } else {
       setData(pageData as ScrapedData[] || []); 
       setTotalRecords(count || 0);
     }
 
-    // ... (Export Sorgusu - Değişiklik yok) ...
-    let allDataQuery = supabase.from('scraped_data').select('*, product_details(*)');
+    // --- Dışa Aktarım Sorgusu (GÜNCELLENDİ) ---
+    let allDataQuery = supabase
+      .from('scraped_data')
+      .select('*');
+
     if (filterDomain) allDataQuery = allDataQuery.ilike('domain', `%${filterDomain}%`);
-    if (filterStatus !== 'all') allDataQuery = allDataQuery.eq('product_details.status', filterStatus); 
+    if (filterStatus !== 'all') allDataQuery = allDataQuery.eq('product_status', filterStatus);  // Düzeltildi
     if (filterCurrency) allDataQuery = allDataQuery.ilike('currency', `%${filterCurrency}%`);
     if (filterLanguage) allDataQuery = allDataQuery.ilike('language', `%${filterLanguage}%`);
-    if (filterTitle) allDataQuery = allDataQuery.ilike('product_details.title', `%${filterTitle}%`);
-    if (filterListedurum !== 'all') allDataQuery = allDataQuery.eq('listedurum', filterListedurum === 'true');
+    if (filterTitle) allDataQuery = allDataQuery.ilike('product_title', `%${filterTitle}%`); // Düzeltildi
+    if (filterListedurum !== 'all') {
+      allDataQuery = allDataQuery.eq('listedurum', filterListedurum === 'true');
+    }
     if (filterNiche) allDataQuery = allDataQuery.ilike('niche', `%${filterNiche}%`);
     if (filterCiro) allDataQuery = allDataQuery.ilike('ciro', `%${filterCiro}%`);
     if (filterTrafik) allDataQuery = allDataQuery.ilike('trafik', `%${filterTrafik}%`);
-    if (filterProductCount !== '') allDataQuery = allDataQuery.gte('product_count', filterProductCount);
+    if (filterProductCount !== '') {
+      allDataQuery = allDataQuery.gte('product_count', filterProductCount);
+    }
     if (filterApp) allDataQuery = allDataQuery.ilike('app', `%${filterApp}%`);
     if (filterTheme) allDataQuery = allDataQuery.ilike('theme', `%${filterTheme}%`);
     if (filterInceleyen !== 'all') allDataQuery = allDataQuery.eq('inceleyen', filterInceleyen);
+    
     if (searchTerm) {
-      const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`; 
+      // Düzeltildi
+      const searchConditions = `domain.ilike.%${searchTerm}%,product_title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`; 
       allDataQuery = allDataQuery.or(searchConditions);
     }
-    const { data: fullData } = await allDataQuery.order('date', { ascending: false }).order('domain', { ascending: true });
-    setAllData(fullData as ScrapedData[] || []);
-    // ... (Export Sorgusu Bitiş) ...
 
+    const { data: fullData } = await allDataQuery
+      .order('date', { ascending: false })
+      .order('domain', { ascending: true });
+    
+    setAllData(fullData as ScrapedData[] || []);
     setIsLoading(false);
 
   }, [
@@ -874,35 +742,26 @@ function App() {
   ]); 
   
   
-  // --- Veritabanı Değişikliklerini Dinle (YENİ) ---
-  // Arka plan işlemi bittiğinde veya ilerlediğinde grid'i yenilemek için
+  // Veritabanı Değişikliklerini Dinle (GÜNCELLENDİ)
+  // Artık 'scrape_jobs' yerine 'scraped_data' tablosunu dinliyoruz
   useEffect(() => {
-    // Sadece scrape_jobs tablosundaki INSERT veya UPDATE işlemlerini dinle
     const channel = supabase
-      .channel('scrape-jobs-changes')
+      .channel('scraped-data-changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'scrape_jobs' },
+        { event: '*', schema: 'public', table: 'scraped_data' }, // 'scraped_data'yı dinle
         (payload) => {
-          console.log('Job değişikliği algılandı, grid yenileniyor:', payload);
-          // İşlemin bittiğini kontrol et
-          if (payload.new && (payload.new as ScrapeJob).status === 'completed') {
-            setIsImporting(false); // CSV yükleme butonunu tekrar aktif et
-          }
-          if (payload.new && (payload.new as ScrapeJob).status === 'failed') {
-             setIsImporting(false); // Hata durumunda da aktif et
-          }
-          // Grid verisini yeniden yükle
+          console.log('Veri değişikliği algılandı, grid yenileniyor:', payload);
+          // Supabase UI'dan CSV yüklediğinizde burası tetiklenecek
           loadGridData(currentPage);
         }
       )
       .subscribe();
 
-    // Component unmount olduğunda aboneliği bitir
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadGridData, currentPage]); // loadGridData ve currentPage bağımlılıkları eklendi
+  }, [loadGridData, currentPage]);
   
   
   useEffect(() => {
@@ -931,9 +790,7 @@ function App() {
     setCurrentPage(page);
   }, []);
   
-  const handleImportStart = useCallback(() => {
-    setIsImporting(true);
-  }, []);
+  // handleImportComplete SİLİNDİ
 
   const userSelector = (
     <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
@@ -969,17 +826,16 @@ function App() {
             <h1 className="text-3xl font-bold text-gray-900">MerchantGenius</h1>
           </div>
           <p className="text-gray-600">
-            Toplu veri içe aktarma, filtreleme ve yönetme arayüzü
+            Veri filtreleme ve yönetme arayüzü
           </p>
         </div>
 
         {userSelector}
 
-        <div className="mb-6">
-          <CsvImporter 
-            onImportStart={handleImportStart}
-            disabled={isImporting} // Arka planda bir iş sürerken butonu kilitle
-          />
+        {/* --- CsvImporter Bileşeni Buradan SİLİNDİ --- */}
+        <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4">
+          <h3 className="font-semibold">Veri Yükleme Notu</h3>
+          <p className="text-sm">Veri yüklemek için lütfen Supabase arayüzündeki <code className="bg-blue-100 px-1 py-0.5 rounded">scraped_data</code> tablosunu kullanın ve "Import data from CSV" özelliğini seçin.</p>
         </div>
 
         <DataTable
