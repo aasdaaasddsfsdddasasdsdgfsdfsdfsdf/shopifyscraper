@@ -66,7 +66,10 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
         .single();
       
       if (jobError) throw new Error(`CSV için 'job' kaydı oluşturulamadı: ${jobError.message}`);
-      if (!jobData) throw new Error('CSV 'job' ID\'si alınamadı.');
+      // --- DÜZELTME (Sintaks Hatası Giderildi) ---
+      // Hata mesajındaki tek tırnak ('job') çakışıyordu, çift tırnak ile düzeltildi.
+      if (!jobData) throw new Error("CSV 'job' ID'si alınamadı.");
+      // --- DÜZELTME SONU ---
       
       csvJobId = jobData.id;
       // --- DÜZELTME SONU ---
