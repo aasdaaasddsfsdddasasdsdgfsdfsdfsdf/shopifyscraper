@@ -25,12 +25,63 @@ function cleanDomain(raw: string): string {
   return s.toLowerCase();
 }
 
+interface ProductData {
+  images: string[];
+  status: 'open' | 'closed';
+  error?: string;
+}
+
 interface ScrapedRecord {
   date: string;
   domain: string;
   currency: string;
   language: string;
-  source_url: string;
+  products: ProductData;
+}
+
+async function fetchProductImages(domain: string): Promise<ProductData> {
+  try {
+    const url = `https://${domain}/products.json?limit=10`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        images: [],
+        status: 'closed',
+        error: `HTTP ${response.status}`,
+      };
+    }
+
+    const data = await response.json();
+    const images: string[] = [];
+
+    if (data.products && Array.isArray(data.products) && data.products.length > 0) {
+      const firstProduct = data.products[0];
+      if (firstProduct.images && Array.isArray(firstProduct.images)) {
+        for (let i = 0; i < Math.min(3, firstProduct.images.length); i++) {
+          const img = firstProduct.images[i];
+          if (img && img.src) {
+            images.push(img.src);
+          }
+        }
+      }
+    }
+
+    return {
+      images,
+      status: 'open',
+    };
+  } catch (error) {
+    return {
+      images: [],
+      status: 'closed',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
 }
 
 async function scrapeDate(dateStr: string): Promise<ScrapedRecord[]> {
@@ -87,12 +138,15 @@ async function scrapeDate(dateStr: string): Promise<ScrapedRecord[]> {
       }
 
       seenDomains.add(domain);
+
+      const productData = await fetchProductImages(domain);
+
       records.push({
         date: dateStr,
         domain,
         currency,
         language,
-        source_url: url,
+        products: productData,
       });
     }
 

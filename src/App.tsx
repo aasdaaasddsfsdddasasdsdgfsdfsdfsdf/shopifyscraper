@@ -45,7 +45,8 @@ function App() {
     const { data: fullData } = await supabase
       .from('scraped_data')
       .select('*')
-      .eq('job_id', jobId);
+      .eq('job_id', jobId)
+      .order('date', { ascending: false });
 
     setAllData(fullData || []);
   }, []);
@@ -78,10 +79,16 @@ function App() {
     loadLatestJob();
   }, []);
 
+  const getTodayDateStr = (): string => {
+    const today = new Date();
+    return formatDate(today);
+  };
+
   const resumeScraping = async (job: ScrapeJob) => {
     try {
       const startDate = new Date(job.processing_date);
-      const endDate = new Date(job.end_date);
+      const today = new Date(getTodayDateStr());
+      const endDate = new Date(job.end_date) > today ? today : new Date(job.end_date);
       let totalRecords = job.total_records;
 
       for (let dt = startDate; dt <= endDate; dt = addDays(dt, 1)) {
@@ -133,11 +140,14 @@ function App() {
     try {
       setIsScrapingActive(true);
 
+      const today = getTodayDateStr();
+      const finalEndDate = new Date(endDate) > new Date(today) ? today : endDate;
+
       const { data: newJob, error: jobError } = await supabase
         .from('scrape_jobs')
         .insert({
           start_date: startDate,
-          end_date: endDate,
+          end_date: finalEndDate,
           processing_date: startDate,
           status: 'in_progress',
           total_records: 0,
@@ -153,7 +163,7 @@ function App() {
       setCurrentPage(1);
 
       const start = new Date(startDate);
-      const end = new Date(endDate);
+      const end = new Date(finalEndDate);
       let totalRecords = 0;
 
       for (let dt = start; dt <= end; dt = addDays(dt, 1)) {
@@ -200,6 +210,36 @@ function App() {
     }
   };
 
+  const handleContinueFromLast = async () => {
+    if (!currentJob) return;
+
+    try {
+      setIsScrapingActive(true);
+
+      const today = getTodayDateStr();
+      const { data: updatedJob, error } = await supabase
+        .from('scrape_jobs')
+        .update({
+          end_date: today,
+          status: 'in_progress',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', currentJob.id)
+        .select()
+        .single();
+
+      if (error || !updatedJob) {
+        throw new Error('Failed to update job');
+      }
+
+      setCurrentJob(updatedJob);
+      resumeScraping(updatedJob);
+    } catch (error) {
+      console.error('Error continuing scraping:', error);
+      setIsScrapingActive(false);
+    }
+  };
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     if (currentJob) {
@@ -216,13 +256,26 @@ function App() {
             <h1 className="text-3xl font-bold text-gray-900">MerchantGenius Scraper</h1>
           </div>
           <p className="text-gray-600">
-            Automated data extraction from MerchantGenius with resume capability and export features
+            Automated data extraction with resume capability, product image fetching, and export features
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div className="lg:col-span-2">
-            <DateRangeForm onSubmit={handleStartScraping} disabled={isScrapingActive} />
+            <div className="space-y-4">
+              <DateRangeForm onSubmit={handleStartScraping} disabled={isScrapingActive} />
+
+              {currentJob && currentJob.status === 'completed' && (
+                <button
+                  onClick={handleContinueFromLast}
+                  disabled={isScrapingActive}
+                  className="w-full bg-orange-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <Database className="w-5 h-5" />
+                  Continue from Last Date to Today
+                </button>
+              )}
+            </div>
           </div>
           <div>
             <JobProgress job={currentJob} currentProgress={currentProgress} />

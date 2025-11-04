@@ -1,11 +1,17 @@
 import { supabase } from './supabase';
 
+export interface ProductData {
+  images: string[];
+  status: 'open' | 'closed';
+  error?: string;
+}
+
 export interface ScrapedRecord {
   date: string;
   domain: string;
   currency: string;
   language: string;
-  source_url: string;
+  products: ProductData;
 }
 
 const BLOG_BLOCK_RE = /<div\s+class="blogContent">([\s\S]*?)<\/div>/gi;

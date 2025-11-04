@@ -16,6 +16,12 @@ export interface ScrapeJob {
   updated_at: string;
 }
 
+export interface ProductData {
+  images: string[];
+  status: 'open' | 'closed';
+  error?: string;
+}
+
 export interface ScrapedData {
   id: string;
   job_id: string;
@@ -23,6 +29,6 @@ export interface ScrapedData {
   domain: string;
   currency: string;
   language: string;
-  source_url: string;
+  products: ProductData;
   created_at: string;
 }

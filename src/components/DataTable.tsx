@@ -1,4 +1,5 @@
-import { ChevronLeft, ChevronRight, Download, FileJson } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronLeft, ChevronRight, Download, FileJson, Search } from 'lucide-react';
 import { ScrapedData } from '../lib/supabase';
 import { exportToCSV, exportToJSON } from '../lib/export';
 
@@ -19,6 +20,22 @@ export function DataTable({
   onPageChange,
   allData
 }: DataTableProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterDomain, setFilterDomain] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
+
+  const filteredData = data.filter(row => {
+    const matchesSearch = row.domain.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         row.date.includes(searchTerm) ||
+                         row.currency.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         row.language.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesDomain = !filterDomain || row.domain.toLowerCase().includes(filterDomain.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || row.products.status === filterStatus;
+
+    return matchesSearch && matchesDomain && matchesStatus;
+  });
+
   if (data.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200 text-center">
@@ -29,25 +46,71 @@ export function DataTable({
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-800">
-          Scraped Data ({totalRecords.toLocaleString()} records)
-        </h3>
-        <div className="flex gap-2">
-          <button
-            onClick={() => exportToCSV(allData)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-medium"
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">
+            Scraped Data ({totalRecords.toLocaleString()} records)
+          </h3>
+          <div className="flex gap-2">
+            <button
+              onClick={() => exportToCSV(allData)}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-medium"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
+            <button
+              onClick={() => exportToJSON(allData)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium"
+            >
+              <FileJson className="w-4 h-4" />
+              Export JSON
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by domain, date, currency..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <input
+            type="text"
+            placeholder="Filter by domain..."
+            value={filterDomain}
+            onChange={(e) => setFilterDomain(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as 'all' | 'open' | 'closed')}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <Download className="w-4 h-4" />
-            Export CSV
-          </button>
-          <button
-            onClick={() => exportToJSON(allData)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium"
-          >
-            <FileJson className="w-4 h-4" />
-            Export JSON
-          </button>
+            <option value="all">All Status</option>
+            <option value="open">Open</option>
+            <option value="closed">Closed</option>
+          </select>
+
+          {(searchTerm || filterDomain || filterStatus !== 'all') && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setFilterDomain('');
+                setFilterStatus('all');
+              }}
+              className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 transition-colors"
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -55,54 +118,85 @@ export function DataTable({
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Date
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Domain
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Currency
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Language
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Source
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Products
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {data.map((row) => (
+            {filteredData.map((row) => (
               <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                   {row.date}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-900">
+                <td className="px-4 py-4 text-sm text-gray-900">
                   <a
                     href={`https://${row.domain}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
+                    className="text-blue-600 hover:underline font-medium"
                   >
                     {row.domain}
                   </a>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                   {row.currency || '-'}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-900">
+                <td className="px-4 py-4 text-sm text-gray-900">
                   {row.language || '-'}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <a
-                    href={row.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
-                  >
-                    View Source
-                  </a>
+                <td className="px-4 py-4 whitespace-nowrap text-sm">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    row.products.status === 'open'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {row.products.status.toUpperCase()}
+                  </span>
+                </td>
+                <td className="px-4 py-4 py-3">
+                  {row.products.status === 'open' && row.products.images.length > 0 ? (
+                    <div className="flex gap-2">
+                      {row.products.images.map((img, idx) => (
+                        <a
+                          key={idx}
+                          href={img}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="View full image"
+                        >
+                          <img
+                            src={img}
+                            alt={`Product ${idx + 1}`}
+                            className="w-12 h-12 rounded object-cover border border-gray-200 hover:border-blue-500 transition-colors"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48"%3E%3Crect fill="%23f0f0f0" width="48" height="48"/%3E%3Ctext x="50%25" y="50%25" font-size="12" fill="%23999" text-anchor="middle" dy=".3em"%3EError%3C/text%3E%3C/svg%3E';
+                            }}
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-500 text-sm">
+                      {row.products.status === 'closed' ? 'KAPALI' : 'No images'}
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -113,7 +207,7 @@ export function DataTable({
       {totalPages > 1 && (
         <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
           <div className="text-sm text-gray-600">
-            Page {currentPage} of {totalPages}
+            Page {currentPage} of {totalPages} ({filteredData.length} visible records)
           </div>
           <div className="flex gap-2">
             <button

@@ -54,3 +54,4 @@ function downloadFile(content: string, filename: string, mimeType: string): void
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
