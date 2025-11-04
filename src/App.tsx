@@ -148,7 +148,7 @@ export function exportToJSON(data: ScrapedData[]): void {
 }
 
 // =================================================================================
-// 3. SCRAPER FONKSİYONLARI (src/lib/scraper.ts içeriği)
+// 3. SCRAPER FONKSİYONLARI (src/lib/scraper.ts içeriği) - ARTIK KULLANILMIYOR AMA SİLMEDİM
 // =================================================================================
 
 export interface ScrapedProductData {
@@ -287,153 +287,6 @@ export async function updateJobProgress(
 // =================================================================================
 // 4. BİLEŞENLER (COMPONENTS) - 'App' DIŞINA TAŞINDI VE 'memo' KULLANILDI
 // =================================================================================
-
-// --- DateRangeForm Bileşeni ---
-interface DateRangeFormProps {
-  onSubmit: (startDate: string, endDate: string) => void;
-  disabled: boolean;
-}
-
-const DateRangeForm = memo(({ onSubmit, disabled }: DateRangeFormProps) => {
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (startDate && endDate) {
-      onSubmit(startDate, endDate);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-      <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-        <Calendar className="w-5 h-5" />
-        Scrape Date Range
-      </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div>
-          <label htmlFor="start-date" className="block text-sm font-medium text-gray-700 mb-1">
-            Start Date
-          </label>
-          <input
-            id="start-date"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            disabled={disabled}
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-          />
-        </div>
-        <div>
-          <label htmlFor="end-date" className="block text-sm font-medium text-gray-700 mb-1">
-            End Date
-          </label>
-          <input
-            id="end-date"
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            disabled={disabled}
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-          />
-        </div>
-      </div>
-      <button
-        type="submit"
-        disabled={disabled || !startDate || !endDate}
-        className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
-        <PlayCircle className="w-5 h-5" />
-        Start Scraping
-      </button>
-    </form>
-  );
-});
-
-// --- JobProgress Bileşeni ---
-interface JobProgressProps {
-  job: ScrapeJob | null;
-  currentProgress?: string;
-}
-
-const JobProgress = memo(({ job, currentProgress }: JobProgressProps) => {
-  if (!job) return null;
-
-  const getStatusIcon = () => {
-    switch (job.status) {
-      case 'in_progress':
-        return <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />;
-      case 'completed':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case 'failed':
-        return <XCircle className="w-5 h-5 text-red-600" />;
-      default:
-        return <Pause className="w-5 h-5 text-gray-500" />;
-    }
-  };
-
-  const getStatusText = () => {
-    switch (job.status) {
-      case 'in_progress':
-        return 'In Progress';
-      case 'completed':
-        return 'Completed';
-      case 'failed':
-        return 'Failed';
-      default:
-        return 'Pending';
-    }
-  };
-
-  const getStatusColor = () => {
-    switch (job.status) {
-      case 'in_progress':
-        return 'bg-blue-50 border-blue-200';
-      case 'completed':
-        return 'bg-green-50 border-green-200';
-      case 'failed':
-        return 'bg-red-50 border-red-200';
-      default:
-        return 'bg-gray-50 border-gray-200';
-    }
-  };
-
-  return (
-    <div className={`rounded-lg shadow-sm p-6 border ${getStatusColor()}`}>
-      <div className="flex items-center gap-3 mb-4">
-        {getStatusIcon()}
-        <h3 className="text-lg font-semibold text-gray-800">{getStatusText()}</h3>
-      </div>
-      <div className="space-y-2 text-sm">
-        <div className="flex justify-between">
-          <span className="text-gray-600">Date Range:</span>
-          <span className="font-medium text-gray-800">
-            {job.start_date} to {job.end_date}
-          </span>
-        </div>
-        {job.status === 'in_progress' && (
-          <div className="flex justify-between">
-            <span className="text-gray-600">Currently Processing:</span>
-            <span className="font-medium text-gray-800">{currentProgress || job.processing_date}</span>
-          </div>
-        )}
-        <div className="flex justify-between">
-          <span className="text-gray-600">Records Scraped:</span>
-          <span className="font-medium text-blue-600">{job.total_records.toLocaleString()}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-600">Started:</span>
-          <span className="font-medium text-gray-800">
-            {new Date(job.created_at).toLocaleString()}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-});
 
 // --- ListingCheckbox Bileşeni ---
 interface ListingCheckboxProps {
@@ -659,8 +512,6 @@ const CsvImporter = memo(({ onImportComplete, setIsImporting, disabled }: CsvImp
               if (updateError) {
                 throw new Error(`scraped_data GÜNCELLEME Hatası: ${updateError.message}`);
               }
-              // console.log(`[Satır ${i + 1}] Güncellendi: ${row.domain}`); // Konsolu yavaşlatmamak için kapatıldı
-
             } else {
               const { data: newData, error: insertError } = await supabase
                 .from('scraped_data')
@@ -675,7 +526,6 @@ const CsvImporter = memo(({ onImportComplete, setIsImporting, disabled }: CsvImp
                 throw new Error('scraped_data eklendi ancak ID geri dönmedi.');
               }
               scrapedDataId = newData.id;
-              // console.log(`[Satır ${i + 1}] Eklendi: ${row.domain}`); // Konsolu yavaşlatmamak için kapatıldı
             }
             
             const images = [row.image1, row.image2, row.image3].filter(Boolean) as string[];
@@ -810,7 +660,7 @@ interface DataTableProps {
   totalRecords: number;
   onPageChange: (page: number) => void;
   allData: ScrapedData[];
-  isLoading: boolean; // isLoading'i App'den alıyoruz (tablo verisi yüklenirken)
+  isLoading: boolean;
   currentUser: string; 
   
   // Filtreler ve Setter'ları
@@ -860,7 +710,6 @@ const DataTable = memo(({
   const [showColumnManager, setShowColumnManager] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
-  // --- KASMAYA NEDEN OLAN KISIM DÜZELTİLDİ ---
   const [localSearchTerm, setLocalSearchTerm] = useState(filterProps.searchTerm);
   const [localFilterDomain, setLocalFilterDomain] = useState(filterProps.filterDomain);
   const [localFilterStatus, setLocalFilterStatus] = useState(filterProps.filterStatus);
@@ -875,7 +724,6 @@ const DataTable = memo(({
   const [localFilterApp, setLocalFilterApp] = useState(filterProps.filterApp);
   const [localFilterTheme, setLocalFilterTheme] = useState(filterProps.filterTheme);
 
-  // 'Filtrele' butonuna tıklandığında parent'ı (App) güncelle
   const handleFilterApply = () => {
     filterProps.setSearchTerm(localSearchTerm);
     filterProps.setFilterDomain(localFilterDomain);
@@ -892,9 +740,7 @@ const DataTable = memo(({
     filterProps.setFilterTheme(localFilterTheme);
   };
 
-  // 'Temizle' butonuna tıklandığında hem lokali hem parent'ı temizle
   const handleFilterClear = () => {
-    // Sadece lokal state'i temizle, 'Uygula'ya basılana kadar parent'ı (App) tetikleme
     setLocalSearchTerm('');
     setLocalFilterDomain('');
     setLocalFilterStatus('all');
@@ -925,7 +771,6 @@ const DataTable = memo(({
     filterProps.setFilterTheme('');
   };
 
-  // Parent'tan (App) gelen filtreler değişirse (örn: Temizle'ye basılırsa), lokal state'i eşitle
   useEffect(() => {
     setLocalSearchTerm(filterProps.searchTerm);
     setLocalFilterDomain(filterProps.filterDomain);
@@ -1138,7 +983,7 @@ const DataTable = memo(({
                      (val !== 'all' && typeof val !== 'function');
             })
               ? 'Filtrelerinizle eşleşen kayıt bulunamadı.'
-              : 'No data available. Start a scraping job to see results.'
+              : 'No data available. Start a CSV import to see results.' // Scraper kaldırıldı
             }
           </p>
         </div>
@@ -1178,7 +1023,7 @@ const DataTable = memo(({
                   {visibleColumns.includes('currency') && <th className={thCell}>Currency</th>}
                   {visibleColumns.includes('language') && <th className={thCell}>Language</th>}
                   {visibleColumns.includes('product_details.status') && <th className={thCell}>Status</th>}
-                  {visibleColumns.includes('product_details.title') && <th className={thCell}>Product Title</th>}
+                  {visibleColumns.includes('product_details.title') && <th className{thCell}>Product Title</th>}
                   {visibleColumns.includes('products') && <th className={thCell}>Products</th>}
                   {visibleColumns.includes('inceleyen') && <th className={thCell}>İnceleyen</th>}
                   {visibleColumns.includes('listedurum') && <th className={`${thCell} text-center`}>Listelensin mi?</th>}
@@ -1335,22 +1180,14 @@ const DataTable = memo(({
 
 
 // =================================================================================
-// 5. ANA APP BİLEŞENİ
+// 5. ANA APP BİLEŞENİ (SADELEŞTİRİLDİ)
 // =================================================================================
 
 const ITEMS_PER_PAGE = 50;
 const REVIEWERS = ['Efkan', 'Mert', 'Furkan'];
 
-// Yardımcı fonksiyon App dışında tanımlandı
-const getTodayDateStr = (): string => {
-  const today = new Date();
-  return formatDate(today);
-};
-
 function App() {
-  const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
-  const [isScrapingActive, setIsScrapingActive] = useState(false);
-  const [currentProgress, setCurrentProgress] = useState('');
+  // Scraper ile ilgili state'ler kaldırıldı
   const [isImporting, setIsImporting] = useState(false);
   const [currentUser, setCurrentUser] = useState('');
   
@@ -1358,7 +1195,7 @@ function App() {
   const [allData, setAllData] = useState<ScrapedData[]>([]); 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [isLoading, setIsLoading] = useState(true); // Yüklenme state'i eklendi
+  const [isLoading, setIsLoading] = useState(true);
 
   // --- Tüm Filtre State'leri ---
   const [searchTerm, setSearchTerm] = useState('');
@@ -1379,7 +1216,7 @@ function App() {
 
   // --- Veri Yükleme Fonksiyonu (useCallback ile optimize edildi) ---
   const loadGridData = useCallback(async (page: number) => {
-    setIsLoading(true); // Yüklemeyi başlat
+    setIsLoading(true);
     const offset = (page - 1) * ITEMS_PER_PAGE;
 
     let pageQuery = supabase
@@ -1422,9 +1259,7 @@ function App() {
       setTotalRecords(count || 0);
     }
 
-    // --- Dışa Aktarım Sorgusu (Optimize edildi) ---
-    // Sadece filtreler değiştiğinde tüm veriyi çek, sayfa değiştiğinde değil.
-    // Bu, performansı daha da artırır, ancak şimdilik basit tutalım.
+    // Dışa Aktarım Sorgusu
     let allDataQuery = supabase
       .from('scraped_data')
       .select('*, product_details(*)');
@@ -1456,85 +1291,19 @@ function App() {
       .order('domain', { ascending: true });
     
     setAllData(fullData as ScrapedData[] || []);
-    setIsLoading(false); // Yüklemeyi bitir
+    setIsLoading(false);
 
   }, [
-    // Tüm filtre state'leri bağımlılık dizisine eklendi
     searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, 
     filterTitle, filterListedurum, filterNiche, filterCiro, filterTrafik, 
     filterProductCount, filterApp, filterTheme
   ]); 
   
-  // --- Diğer Fonksiyonlar (useCallback ile optimize edildi) ---
+  // Scraper ile ilgili (loadLatestJob, resumeScraping) fonksiyonlar kaldırıldı
   
-  const loadLatestJob = useCallback(async (jobToResume?: ScrapeJob) => {
-    const { data: jobs, error } = await supabase
-      .from('scrape_jobs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error loading job:', error);
-      return;
-    }
-    const jobToLoad = jobToResume || jobs;
-    if (jobToLoad) {
-      setCurrentJob(jobToLoad); 
-      if (jobToLoad.status === 'in_progress') {
-        setIsScrapingActive(true);
-        if (jobToResume) {
-          resumeScraping(jobToResume); // resumeScraping'i çağır
-        } else if (jobs && jobs.status === 'in_progress') {
-           resumeScraping(jobs); // resumeScraping'i çağır
-        }
-      }
-    }
-  }, []); // Bağımlılıklar güncellendi (resumeScraping çıkarıldı, App scope'unda)
-
-  
-  const resumeScraping = useCallback(async (job: ScrapeJob) => {
-    try {
-      setIsScrapingActive(true);
-      const startDate = new Date(job.processing_date);
-      const today = new Date(getTodayDateStr());
-      const endDate = new Date(job.end_date) > today ? today : new Date(job.end_date);
-      let totalRecords = job.total_records;
-
-      for (let dt = startDate; dt <= endDate; dt = addDays(dt, 1)) {
-        const dateStr = formatDate(dt);
-        setCurrentProgress(dateStr);
-        const records = await scrapeDate(dateStr);
-        if (records.length > 0) {
-          await saveRecords(job.id, records); 
-          totalRecords += records.length;
-        }
-        const nextDate = addDays(dt, 1);
-        const status = nextDate > endDate ? 'completed' : 'in_progress';
-        await updateJobProgress(job.id, formatDate(nextDate <= endDate ? nextDate : dt), status, totalRecords);
-        const { data: updatedJob } = await supabase.from('scrape_jobs').select('*').eq('id', job.id).maybeSingle();
-        if (updatedJob) {
-          setCurrentJob(updatedJob);
-        }
-        await loadGridData(currentPage); // loadGridData'yı çağır
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-      setIsScrapingActive(false);
-      setCurrentProgress('');
-    } catch (error) {
-      console.error('Scraping error:', error);
-      await updateJobProgress(job.id, job.processing_date, 'failed', job.total_records);
-      setIsScrapingActive(false);
-      setCurrentProgress('');
-    }
-  }, [loadGridData, currentPage]); // loadGridData ve currentPage bağımlılık olarak eklendi
-
-
   useEffect(() => {
-    loadLatestJob(); 
-    loadGridData(1);  
-  }, [loadLatestJob, loadGridData]); // Bağımlılıklar eklendi
+    loadGridData(1);  // Sadece grid'i yükle
+  }, [loadGridData]); // Bağımlılık eklendi
 
   
   useEffect(() => {
@@ -1552,86 +1321,7 @@ function App() {
     loadGridData(currentPage);
   }, [currentPage, loadGridData]); 
 
-
-  const handleStartScraping = useCallback(async (startDate: string, endDate: string) => {
-    try {
-      setIsScrapingActive(true);
-      const today = getTodayDateStr();
-      const finalEndDate = new Date(endDate) > new Date(today) ? today : endDate;
-
-      const { data: newJob, error: jobError } = await supabase
-        .from('scrape_jobs')
-        .insert({
-          start_date: startDate,
-          end_date: finalEndDate,
-          processing_date: startDate,
-          status: 'in_progress',
-          total_records: 0,
-        })
-        .select()
-        .single();
-
-      if (jobError || !newJob) {
-        throw new Error('Failed to create job');
-      }
-
-      setCurrentJob(newJob);
-      setCurrentPage(1); 
-      const start = new Date(startDate);
-      const end = new Date(finalEndDate);
-      let totalRecords = 0;
-
-      for (let dt = start; dt <= end; dt = addDays(dt, 1)) {
-        const dateStr = formatDate(dt);
-        setCurrentProgress(dateStr);
-        const records = await scrapeDate(dateStr);
-        if (records.length > 0) {
-          await saveRecords(newJob.id, records);
-          totalRecords += records.length;
-        }
-        const nextDate = addDays(dt, 1);
-        const status = nextDate > end ? 'completed' : 'in_progress';
-        await updateJobProgress(newJob.id, formatDate(nextDate <= end ? nextDate : dt), status, totalRecords);
-        const { data: updatedJob } = await supabase.from('scrape_jobs').select('*').eq('id', newJob.id).maybeSingle();
-        if (updatedJob) {
-          setCurrentJob(updatedJob);
-        }
-        await loadGridData(1); 
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-      setIsScrapingActive(false);
-      setCurrentProgress('');
-    } catch (error) {
-      console.error('Error starting scraping:', error);
-      setIsScrapingActive(false);
-      setCurrentProgress('');
-    }
-  }, [loadGridData]);
-  
-  const handleContinueFromLast = useCallback(async () => {
-    if (!currentJob) return;
-    try {
-      setIsScrapingActive(true);
-      const today = getTodayDateStr();
-      const { data: updatedJob, error } = await supabase
-        .from('scrape_jobs')
-        .update({
-          end_date: today,
-          status: 'in_progress',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', currentJob.id)
-        .select()
-        .single();
-      if (error || !updatedJob) {
-        throw new Error('Failed to update job');
-      }
-      loadLatestJob(updatedJob); 
-    } catch (error) {
-      console.error('Error continuing scraping:', error);
-      setIsScrapingActive(false);
-    }
-  }, [currentJob, loadLatestJob]);
+  // Scraper ile ilgili (handleStartScraping, handleContinueFromLast) fonksiyonlar kaldırıldı
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
@@ -1674,40 +1364,22 @@ function App() {
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <Database className="w-8 h-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">MerchantGenius Scraper</h1>
+            <h1 className="text-3xl font-bold text-gray-900">MerchantGenius</h1>
           </div>
           <p className="text-gray-600">
-            Automated data extraction with resume capability, product image fetching, and export features
+            Toplu veri içe aktarma, filtreleme ve yönetme arayüzü
           </p>
         </div>
 
         {userSelector}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <div className="lg:col-span-2 space-y-4">
-            <CsvImporter 
-              onImportComplete={handleImportComplete}
-              setIsImporting={setIsImporting}
-              disabled={isScrapingActive || isImporting}
-            />
-            <DateRangeForm 
-              onSubmit={handleStartScraping} 
-              disabled={isScrapingActive || isImporting} 
-            />
-            {currentJob && currentJob.status === 'completed' && (
-              <button
-                onClick={handleContinueFromLast}
-                disabled={isScrapingActive || isImporting} 
-                className="w-full bg-orange-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <Database className="w-5 h-5" />
-                Continue from Last Date to Today
-              </button>
-            )}
-          </div>
-          <div>
-            <JobProgress job={currentJob} currentProgress={currentProgress} />
-          </div>
+        {/* Scraper bölümü kaldırıldı, sadece CsvImporter kaldı */}
+        <div className="mb-6">
+          <CsvImporter 
+            onImportComplete={handleImportComplete}
+            setIsImporting={setIsImporting}
+            disabled={isImporting} // Sadece isImporting'e bağlı
+          />
         </div>
 
         <DataTable
@@ -1717,7 +1389,7 @@ function App() {
           totalRecords={totalRecords}
           onPageChange={handlePageChange}
           allData={allData} 
-          isLoading={isLoading} // isLoading prop'u eklendi
+          isLoading={isLoading}
           currentUser={currentUser} 
           
           // Tüm filtreleri ve optimize edilmiş setter'ları DataTable'a yolla
@@ -1754,3 +1426,4 @@ function App() {
 }
 
 export default App;
+
