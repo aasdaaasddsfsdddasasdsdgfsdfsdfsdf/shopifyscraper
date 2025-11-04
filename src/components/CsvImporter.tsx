@@ -49,12 +49,41 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
     setSuccess(null);
     setProgress(0);
 
+    let csvJobId: string | null = null;
+    try {
+      // --- DÜZELTME: "csv-import" için gerçek bir job kaydı oluştur ---
+      const today = new Date().toISOString().split('T')[0];
+      const { data: jobData, error: jobError } = await supabase
+        .from('scrape_jobs')
+        .insert({
+          start_date: today,
+          end_date: today,
+          processing_date: today,
+          status: 'completed', // CSV import anında bitti sayılır
+          total_records: 0, // Daha sonra güncellenecek
+        })
+        .select('id')
+        .single();
+      
+      if (jobError) throw new Error(`CSV için 'job' kaydı oluşturulamadı: ${jobError.message}`);
+      if (!jobData) throw new Error('CSV 'job' ID\'si alınamadı.');
+      
+      csvJobId = jobData.id;
+      // --- DÜZELTME SONU ---
+
+    } catch (err: any) {
+      setError(`Başlangıç hatası: ${err.message}`);
+      setIsImporting(false);
+      return;
+    }
+
     Papa.parse<CsvRow>(file, {
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {
         const rows = results.data;
         setTotal(rows.length);
+        let successfulRows = 0; // Başarılı eklenen satırları say
 
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i];
@@ -66,22 +95,20 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
           }
 
           try {
-            // --- YENİ ÇÖZÜM BAŞLANGICI (SELECT-THEN-UPDATE/INSERT) ---
+            // --- (SELECT-THEN-UPDATE/INSERT) ---
 
             let scrapedDataId: string | null = null;
             
-            // 1. ADIM: Bu domain'in var olup olmadığını KONTROL ET
             const { data: existingData, error: selectError } = await supabase
               .from('scraped_data')
               .select('id')
               .eq('domain', row.domain)
-              .maybeSingle(); // ya bir tane bulur ya da null döner
+              .maybeSingle();
             
             if (selectError) {
               throw new Error(`scraped_data ARAMA Hatası: ${selectError.message}`);
             }
 
-            // CSV'den gelen veriyi hazırla
             const dataToInsertOrUpdate = {
               domain: row.domain,
               ciro: row.ciro || null,
@@ -92,12 +119,11 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
               app: row.app || null,
               theme: row.theme || null,
               date: new Date().toISOString().split('T')[0],
-              job_id: 'csv-import',
+              // --- DÜZELTME: Gerçek UUID'yi kullan ---
+              job_id: csvJobId, 
             };
 
-            // 2. ADIM: Duruma göre GÜNCELLE veya EKLE
             if (existingData) {
-              // 2.A: KAYIT VAR -> Güncelle (UPDATE)
               scrapedDataId = existingData.id;
               const { error: updateError } = await supabase
                 .from('scraped_data')
@@ -110,11 +136,10 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
               console.log(`[Satır ${i + 1}] Güncellendi: ${row.domain}`);
 
             } else {
-              // 2.B: KAYIT YOK -> Ekle (INSERT)
               const { data: newData, error: insertError } = await supabase
                 .from('scraped_data')
                 .insert(dataToInsertOrUpdate)
-                .select('id') // Yeni kaydın ID'sini al
+                .select('id')
                 .single();
 
               if (insertError) {
@@ -126,12 +151,8 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
               scrapedDataId = newData.id;
               console.log(`[Satır ${i + 1}] Eklendi: ${row.domain}`);
             }
-
-            // --- YENİ ÇÖZÜM SONU ---
             
             // 3. ADIM: `product_details`'i EKLE/GÜNCELLE (UPSERT)
-            // Bu (upsert) çalışmalıdır, çünkü `scraped_data_id` 1'e 1 ve benzersiz (UNIQUE)
-            // olarak SQL migrasyonunda (20251105103000) ayarlanmıştı.
             const images = [row.image1, row.image2, row.image3].filter(Boolean) as string[];
 
             const { error: productDetailsError } = await supabase
@@ -143,26 +164,34 @@ export function CsvImporter({ onImportComplete, setIsImporting, disabled }: CsvI
                   images: images,
                   status: 'open',
                 },
-                { onConflict: 'scraped_data_id' } // Bu `onConflict` çalışmalı.
+                { onConflict: 'scraped_data_id' }
               );
             
             if (productDetailsError) {
-              // Eğer bu da `no unique constraint` hatası verirse,
-              // '20251105103000_normalize_products.sql' migrasyonu da çalışmamış demektir.
               throw new Error(`product_details Hatası: ${productDetailsError.message}`);
             }
+
+            successfulRows++; // Başarılıysa sayacı artır
 
           } catch (err: any) {
             setError(`[Satır ${i + 1} - ${row.domain}] Hata: ${err.message}. İşlem durduruldu.`);
             setIsImporting(false);
-            return; // Hata anında döngüden çık
+            return;
           }
         }
         
-        // İşlem bitti
-        setSuccess(`${rows.length} satır başarıyla işlendi.`);
+        // --- DÜZELTME: Oluşturulan 'job' kaydını güncelle ---
+        if (csvJobId) {
+          await supabase
+            .from('scrape_jobs')
+            .update({ total_records: successfulRows })
+            .eq('id', csvJobId);
+        }
+        // --- DÜZELTME SONU ---
+        
+        setSuccess(`${successfulRows} satır başarıyla işlendi.`);
         setIsImporting(false);
-        onImportComplete(); // Grid'i yenile
+        onImportComplete();
       },
       error: (err: any) => {
         setError(`CSV okuma hatası: ${err.message}`);
