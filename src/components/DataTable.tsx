@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'; // useState ve useEffect import et
-import { ChevronLeft, ChevronRight, Download, FileJson, Search, Loader2, Filter } from 'lucide-react'; // Filter ikonunu ekle
+import { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Download, FileJson, Search, Loader2, Filter } from 'lucide-react';
 import { ScrapedData } from '../lib/supabase';
 import { exportToCSV, exportToJSON } from '../lib/export';
 
@@ -35,36 +35,35 @@ export function DataTable({
   setFilterStatus
 }: DataTableProps) {
   
-  // --- YENİ: Lokal Filtre State'leri ---
-  // Input'ları kontrol etmek için 'lokal' state'ler.
   const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
   const [localFilterDomain, setLocalFilterDomain] = useState(filterDomain);
   const [localFilterStatus, setLocalFilterStatus] = useState(filterStatus);
 
-  // --- YENİ: Filtreleri Uygulama Fonksiyonu ---
-  // "Filtrele" butonuna basıldığında App.tsx'teki asıl state'leri günceller.
   const handleFilterApply = () => {
     setSearchTerm(localSearchTerm);
     setFilterDomain(localFilterDomain);
     setFilterStatus(localFilterStatus);
-    // App.tsx'teki useEffect (sayfa 1'e dönme) ve
-    // loadGridData'nın tetiklenmesi bu sayede gerçekleşir.
   };
 
-  // --- YENİ: Filtreleri Temizleme Fonksiyonu ---
+  // --- GÜNCELLENMİŞ handleFilterClear ---
   const handleFilterClear = () => {
+    // Parent state'in (prop'ların) kirli olup olmadığını kontrol et
+    const isParentStateDirty = searchTerm || filterDomain || filterStatus !== 'all';
+
+    // Lokal state'i (input'ları) her zaman temizle
     setLocalSearchTerm('');
     setLocalFilterDomain('');
     setLocalFilterStatus('all');
-    // Veritabanı sorgusunu tetiklemek için App.tsx'teki state'leri de temizle
-    setSearchTerm('');
-    setFilterDomain('');
-    setFilterStatus('all');
+
+    // SADECE parent state kirliyse (yani bir filtre uygulanmışsa)
+    // parent state'i güncelleyerek veritabanı sorgusunu tetikle.
+    if (isParentStateDirty) {
+      setSearchTerm('');
+      setFilterDomain('');
+      setFilterStatus('all');
+    }
   };
 
-  // --- YENİ: Prop Senkronizasyonu ---
-  // Eğer filtreler App.tsx tarafında (örn. yeni scrape) sıfırlanırsa,
-  // bu bileşendeki lokal state'lerin de sıfırlanmasını sağlar.
   useEffect(() => {
     setLocalSearchTerm(searchTerm);
     setLocalFilterDomain(filterDomain);
@@ -81,95 +80,110 @@ export function DataTable({
     );
   }
 
+  // "No data" durumunda bile filtreleme çubuğunun görünmesi için
+  // bu bloğu `return` içindeki ana `div`'in içine taşıdık.
+  const filterControls = (
+    <div className="p-4 border-b border-gray-200">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-gray-800">
+          Scraped Data ({totalRecords.toLocaleString()} records)
+        </h3>
+        <div className="flex gap-2">
+          <button
+            onClick={() => exportToCSV(allData)}
+            disabled={allData.length === 0}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-medium disabled:bg-gray-400"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
+          <button
+            onClick={() => exportToJSON(allData)}
+            disabled={allData.length === 0}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium disabled:bg-gray-400"
+          >
+            <FileJson className="w-4 h-4" />
+            Export JSON
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <div className="relative md:col-span-1">
+          <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by domain, title..."
+            value={localSearchTerm}
+            onChange={(e) => setLocalSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        <input
+          type="text"
+          placeholder="Filter by domain..."
+          value={localFilterDomain}
+          onChange={(e) => setLocalFilterDomain(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+
+        <select
+          value={localFilterStatus}
+          onChange={(e) => setLocalFilterStatus(e.target.value as 'all' | 'open' | 'closed')}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="all">All Status</option>
+          <option value="open">Open</option>
+          <option value="closed">Closed</option>
+        </select>
+
+        <button
+          onClick={handleFilterApply}
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+        >
+          <Filter className="w-4 h-4" />
+          Filtrele
+        </button>
+
+        {/* --- GÜNCELLENMİŞ GÖRÜNÜRLÜK KONTROLÜ --- */}
+        {/* Artık 'prop' state yerine 'lokal' state'i kontrol ediyor */}
+        {(localSearchTerm || localFilterDomain || localFilterStatus !== 'all') && (
+          <button
+            onClick={handleFilterClear}
+            className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 transition-colors"
+          >
+            Clear Filters
+          </button>
+        )}
+      </div>
+    </div>
+  );
+  
+  // "No data" durumu
   if (!isLoading && totalRecords === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200 text-center">
-        <p className="text-gray-500">No data available. Start a scraping job to see results.</p>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        {/* Filtre çubuğu "No data" durumunda bile görünecek */}
+        {filterControls}
+        <div className="p-8 text-center">
+          <p className="text-gray-500">
+            {/* Mesajı ayırt etmek için güncelledik */}
+            {searchTerm || filterDomain || filterStatus !== 'all'
+              ? 'Filtrelerinizle eşleşen kayıt bulunamadı.'
+              : 'No data available. Start a scraping job to see results.'
+            }
+          </p>
+        </div>
       </div>
     );
   }
 
+  // Veri olan durum
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">
-            Scraped Data ({totalRecords.toLocaleString()} records)
-          </h3>
-          <div className="flex gap-2">
-            <button
-              onClick={() => exportToCSV(allData)}
-              disabled={allData.length === 0}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-medium disabled:bg-gray-400"
-            >
-              <Download className="w-4 h-4" />
-              Export CSV
-            </button>
-            <button
-              onClick={() => exportToJSON(allData)}
-              disabled={allData.length === 0}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium disabled:bg-gray-400"
-            >
-              <FileJson className="w-4 h-4" />
-              Export JSON
-            </button>
-          </div>
-        </div>
+      {filterControls}
 
-        {/* Layout'u 5 sütuna (md:grid-cols-5) güncelledik */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          <div className="relative md:col-span-1">
-            <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by domain, title..."
-              value={localSearchTerm} // LOKAL state'i kullan
-              onChange={(e) => setLocalSearchTerm(e.target.value)} // LOKAL state'i güncelle
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <input
-            type="text"
-            placeholder="Filter by domain..."
-            value={localFilterDomain} // LOKAL state'i kullan
-            onChange={(e) => setLocalFilterDomain(e.target.value)} // LOKAL state'i güncelle
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-
-          <select
-            value={localFilterStatus} // LOKAL state'i kullan
-            onChange={(e) => setLocalFilterStatus(e.target.value as 'all' | 'open' | 'closed')} // LOKAL state'i güncelle
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">All Status</option>
-            <option value="open">Open</option>
-            <option value="closed">Closed</option>
-          </select>
-
-          {/* YENİ: Filtrele Butonu */}
-          <button
-            onClick={handleFilterApply}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <Filter className="w-4 h-4" />
-            Filtrele
-          </button>
-
-          {/* Temizle Butonu (onClick değişti) */}
-          {(searchTerm || filterDomain || filterStatus !== 'all') && (
-            <button
-              onClick={handleFilterClear} // YENİ fonksiyonu kullan
-              className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 transition-colors"
-            >
-              Clear Filters
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ... (Tablonun geri kalanı (<div>, <table>, <thead>, <tbody>, <Pagination>) aynı) ... */}
-      
       <div className="">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
