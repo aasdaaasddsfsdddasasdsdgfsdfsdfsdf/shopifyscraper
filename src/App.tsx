@@ -13,12 +13,11 @@ function App() {
   const [isScrapingActive, setIsScrapingActive] = useState(false);
   const [currentProgress, setCurrentProgress] = useState('');
   
-  // Data, Filtre ve Yüklenme State'leri
   const [data, setData] = useState<ScrapedData[]>([]);
   const [allData, setAllData] = useState<ScrapedData[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [isLoading, setIsLoading] = useState(true); // YENİ EKLENDİ
+  const [isLoading, setIsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDomain, setFilterDomain] = useState('');
@@ -27,11 +26,10 @@ function App() {
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
   const loadGridData = useCallback(async (page: number) => {
-    setIsLoading(true); // YENİ EKLENDİ
+    setIsLoading(true);
     const offset = (page - 1) * ITEMS_PER_PAGE;
 
     try {
-      // --- 1. Filtrelenmiş ve Sayfalanmış Veri Sorgusu ---
       let pageQuery = supabase
         .from('scraped_data')
         .select('*', { count: 'exact' });
@@ -56,7 +54,6 @@ function App() {
       setData(pageData || []);
       setTotalRecords(count || 0);
 
-      // --- 2. Dışa Aktarım için Tüm Filtrelenmiş Veri Sorgusu ---
       let allDataQuery = supabase
         .from('scraped_data')
         .select('*');
@@ -84,13 +81,11 @@ function App() {
       setTotalRecords(0);
       setAllData([]);
     } finally {
-      setIsLoading(false); // YENİ EKLENDİ
+      setIsLoading(false);
     }
   }, [searchTerm, filterDomain, filterStatus]);
 
-  // Sadece en son işi (JobProgress için) yükler
   const loadLatestJob = useCallback(async (jobToResume?: ScrapeJob) => {
-    // ... (Bu fonksiyon değişmedi)
     const { data: jobs, error } = await supabase
       .from('scrape_jobs')
       .select('*')
@@ -117,20 +112,21 @@ function App() {
         }
       }
     }
-  }, []); // resumeScraping'i bağımlılıktan çıkardık
+  }, []);
 
-  // Component mount edildiğinde
   useEffect(() => {
-    loadLatestJob(); // Job progress'i yükle
-    loadGridData(1);  // Grid'i tüm verilerle ilk kez yükle
-  }, []); // Sadece mount'ta çalışır
+    loadLatestJob();
+    loadGridData(1);
+  }, []);
 
   // Filtreler değiştiğinde 1. sayfaya dön
   useEffect(() => {
+    // Sadece filtreler değiştiğinde (ve ilk yükleme olmadığında)
+    // 1. sayfaya dön
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [searchTerm, filterDomain, filterStatus]);
+  }, [searchTerm, filterDomain, filterStatus]); // Sadece bu state'lere bağlı
 
   // Veri yükleme için ana useEffect (Sayfa veya filtreler değiştiğinde)
   useEffect(() => {
@@ -138,17 +134,15 @@ function App() {
     if (!isLoading) {
       loadGridData(currentPage);
     }
-  }, [currentPage, loadGridData]);
+  }, [currentPage, loadGridData]); // loadGridData filtreler değiştiğinde yeniden oluşur
 
 
   const getTodayDateStr = (): string => {
-    // ... (Bu fonksiyon değişmedi)
     const today = new Date();
     return formatDate(today);
   };
 
   const resumeScraping = async (job: ScrapeJob) => {
-    // ... (Bu fonksiyon değişmedi, ancak loadGridData'yı çağırırken 'currentPage' kullanıyor)
     try {
       const startDate = new Date(job.processing_date);
       const today = new Date(getTodayDateStr());
@@ -185,7 +179,7 @@ function App() {
           setCurrentJob(updatedJob);
         }
         
-        await loadGridData(currentPage); // Grid'i yenile
+        await loadGridData(currentPage);
 
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -201,7 +195,6 @@ function App() {
   };
 
   const handleStartScraping = async (startDate: string, endDate: string) => {
-    // ... (Bu fonksiyon değişmedi, ancak loadGridData(1) çağırıyor)
     try {
       setIsScrapingActive(true);
 
@@ -226,6 +219,13 @@ function App() {
 
       setCurrentJob(newJob);
       setCurrentPage(1);
+      
+      // --- YENİ EKLENDİ: Filtreleri Temizle ---
+      // Yeni scrape başladığında grid filtrelerini sıfırla
+      setSearchTerm('');
+      setFilterDomain('');
+      setFilterStatus('all');
+      // ----------------------------------------
 
       const start = new Date(startDate);
       const end = new Date(finalEndDate);
@@ -261,7 +261,22 @@ function App() {
           setCurrentJob(updatedJob);
         }
         
-        await loadGridData(1); // Grid'i 1. sayfada yenile
+        // loadGridData(1) çağrısı, filtreler sıfırlandığı için
+        // useEffect [loadGridData] tarafından tetiklenecek
+        // ve veriyi yeniden yükleyecektir.
+        // Manuel çağırmaya gerek kalmadı.
+        
+        // Eğer filtreler değişmezse (zaten boşsa),
+        // useEffect tetiklenmez. O yüzden manuel yükleme
+        // (yeni veriyi anında görmek için) daha garantidir.
+        // Filtreler zaten sıfırlandığı için loadGridData(1)
+        // en temiz veriyi getirecektir.
+        if (currentPage === 1) {
+          await loadGridData(1);
+        } else {
+          setCurrentPage(1); // Bu, useEffect'i tetikler
+        }
+
 
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -276,7 +291,6 @@ function App() {
   };
 
   const handleContinueFromLast = async () => {
-    // ... (Bu fonksiyon değişmedi)
     if (!currentJob) return;
 
     try {
@@ -352,8 +366,7 @@ function App() {
           totalRecords={totalRecords}
           onPageChange={handlePageChange}
           allData={allData}
-          isLoading={isLoading} // YENİ EKLENDİ
-          // Filtre state'lerini ve setter'ları prop olarak yolla
+          isLoading={isLoading}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           filterDomain={filterDomain}
