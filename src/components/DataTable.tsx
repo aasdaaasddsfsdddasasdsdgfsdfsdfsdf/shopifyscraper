@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Download, FileJson, Search, Loader2, Filter } from 'lucide-react';
 import { ScrapedData } from '../lib/supabase';
 import { exportToCSV, exportToJSON } from '../lib/export';
+// --- YENİ: Checkbox bileşenini import et ---
+import { ListingCheckbox } from './ListingCheckbox'; 
 
 interface DataTableProps {
   data: ScrapedData[];
@@ -11,19 +13,26 @@ interface DataTableProps {
   onPageChange: (page: number) => void;
   allData: ScrapedData[];
   isLoading: boolean;
+  
+  // --- YENİ PROP EKLENDİ ---
+  currentUser: string; 
+  
   searchTerm: string;
   setSearchTerm: (value: string) => void;
   filterDomain: string;
   setFilterDomain: (value: string) => void;
   filterStatus: 'all' | 'open' | 'closed';
   setFilterStatus: (value: 'all' | 'open' | 'closed') => void;
-  
   filterCurrency: string;
   setFilterCurrency: (value: string) => void;
   filterLanguage: string;
   setFilterLanguage: (value: string) => void;
   filterTitle: string;
   setFilterTitle: (value: string) => void;
+  
+  // --- YENİ FİLTRE PROPLARI ---
+  filterListedurum: 'all' | 'true' | 'false';
+  setFilterListedurum: (value: 'all' | 'true' | 'false') => void;
 }
 
 export function DataTable({
@@ -34,6 +43,7 @@ export function DataTable({
   onPageChange,
   allData,
   isLoading,
+  currentUser, // Prop'u al
   searchTerm,
   setSearchTerm,
   filterDomain,
@@ -45,7 +55,9 @@ export function DataTable({
   filterLanguage,
   setFilterLanguage,
   filterTitle,
-  setFilterTitle
+  setFilterTitle,
+  filterListedurum, // Prop'u al
+  setFilterListedurum // Prop'u al
 }: DataTableProps) {
   
   const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
@@ -54,6 +66,8 @@ export function DataTable({
   const [localFilterCurrency, setLocalFilterCurrency] = useState(filterCurrency);
   const [localFilterLanguage, setLocalFilterLanguage] = useState(filterLanguage);
   const [localFilterTitle, setLocalFilterTitle] = useState(filterTitle);
+  // --- YENİ LOKAL STATE ---
+  const [localFilterListedurum, setLocalFilterListedurum] = useState(filterListedurum);
 
 
   const handleFilterApply = () => {
@@ -63,11 +77,14 @@ export function DataTable({
     setFilterCurrency(localFilterCurrency);
     setFilterLanguage(localFilterLanguage);
     setFilterTitle(localFilterTitle);
+    setFilterListedurum(localFilterListedurum); // Setter'ı çağır
   };
 
+  // --- GÜNCELLENMİŞ handleFilterClear ---
   const handleFilterClear = () => {
     const isParentStateDirty = searchTerm || filterDomain || filterStatus !== 'all' ||
-      filterCurrency || filterLanguage || filterTitle;
+      filterCurrency || filterLanguage || filterTitle ||
+      filterListedurum !== 'all'; // Kontrol eklendi
 
     setLocalSearchTerm('');
     setLocalFilterDomain('');
@@ -75,6 +92,7 @@ export function DataTable({
     setLocalFilterCurrency('');
     setLocalFilterLanguage('');
     setLocalFilterTitle('');
+    setLocalFilterListedurum('all'); // Temizle
 
     if (isParentStateDirty) {
       setSearchTerm('');
@@ -83,6 +101,7 @@ export function DataTable({
       setFilterCurrency('');
       setFilterLanguage('');
       setFilterTitle('');
+      setFilterListedurum('all'); // Setter'ı çağır
     }
   };
 
@@ -93,7 +112,8 @@ export function DataTable({
     setLocalFilterCurrency(filterCurrency);
     setLocalFilterLanguage(filterLanguage);
     setLocalFilterTitle(filterTitle);
-  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle]); 
+    setLocalFilterListedurum(filterListedurum); // Eşitle
+  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle, filterListedurum]); 
 
 
   if (isLoading) {
@@ -131,7 +151,8 @@ export function DataTable({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      {/* --- GÜNCELLENMİŞ GRİD YAPISI (5 SÜTUNLU) --- */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
         <div className="relative md:col-span-1">
           <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
           <input
@@ -185,6 +206,18 @@ export function DataTable({
           <option value="open">Open</option>
           <option value="closed">Closed</option>
         </select>
+        
+        {/* --- YENİ FİLTRE: Liselensin mi? --- */}
+        <select
+          value={localFilterListedurum}
+          onChange={(e) => setLocalFilterListedurum(e.target.value as 'all' | 'true' | 'false')}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="all">Tüm Listeleme</option>
+          <option value="true">Listelenenler</option>
+          <option value="false">Listelenmeyenler</option>
+        </select>
+        {/* --- BİTTİ --- */}
 
         <button
           onClick={handleFilterApply}
@@ -194,8 +227,10 @@ export function DataTable({
           Filtrele
         </button>
 
+        {/* --- GÜNCELLENMİŞ GÖRÜNÜRLÜK KONTROLÜ --- */}
         {(localSearchTerm || localFilterDomain || localFilterStatus !== 'all' ||
-          localFilterCurrency || localFilterLanguage || localFilterTitle
+          localFilterCurrency || localFilterLanguage || localFilterTitle ||
+          localFilterListedurum !== 'all' // Kontrol eklendi
          ) && (
           <button
             onClick={handleFilterClear}
@@ -215,7 +250,8 @@ export function DataTable({
         <div className="p-8 text-center">
           <p className="text-gray-500">
             {searchTerm || filterDomain || filterStatus !== 'all' ||
-             filterCurrency || filterLanguage || filterTitle
+             filterCurrency || filterLanguage || filterTitle ||
+             filterListedurum !== 'all' // Kontrol eklendi
               ? 'Filtrelerinizle eşleşen kayıt bulunamadı.'
               : 'No data available. Start a scraping job to see results.'
             }
@@ -225,7 +261,7 @@ export function DataTable({
     );
   }
 
-  // --- TBODY GÜNCELLENDİ (row.products -> row.product_details) ---
+  // --- TBODY VE THEAD GÜNCELLENDİ (Yeni sütunlar) ---
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       {filterControls}
@@ -255,13 +291,16 @@ export function DataTable({
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Products
               </th>
+              {/* --- YENİ SÜTUN BAŞLIKLARI --- */}
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                İnceleyen
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Liselensin mi?
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {/* Eğer row.product_details null gelirse (JOIN hatası veya
-              eski veri nedeniyle), hata almamak için '?' (optional chaining)
-              ekliyoruz.
-            */}
             {data.map((row) => (
               <tr key={row.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -316,10 +355,11 @@ export function DataTable({
                                 target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48"%3E%3Crect fill="%23f0f0f0" width="48" height="48"/%3E%3Ctext x="50%25" y="50%25" font-size="12" fill="%23999" text-anchor="middle" dy=".3em"%3EError%3C/text%3E%3C/svg%3E';
                               }}
                             />
+                            {/* Hover preview (isteğe bağlı) */}
                             <img
                               src={img}
                               alt="Product preview"
-                              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[300px] h-[300px] object-cover rounded-md shadow-lg border-4 border-white z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                              className="hidden lg:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[300px] h-[300px] object-cover rounded-md shadow-lg border-4 border-white z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                             />
                           </a>
                         </div>
@@ -330,6 +370,18 @@ export function DataTable({
                       {row.product_details?.status === 'closed' ? 'KAPALI' : 'No images'}
                     </span>
                   )}
+                </td>
+                
+                {/* --- YENİ SÜTUN VERİLERİ --- */}
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {row.inceleyen || '-'}
+                </td>
+                <td className="px-4 py-4 text-center">
+                  <ListingCheckbox
+                    rowId={row.id}
+                    initialValue={row.listedurum}
+                    currentUser={currentUser}
+                  />
                 </td>
               </tr>
             ))}
