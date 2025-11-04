@@ -45,18 +45,11 @@ export function DataTable({
     setFilterStatus(localFilterStatus);
   };
 
-  // --- GÜNCELLENMİŞ handleFilterClear ---
   const handleFilterClear = () => {
-    // Parent state'in (prop'ların) kirli olup olmadığını kontrol et
     const isParentStateDirty = searchTerm || filterDomain || filterStatus !== 'all';
-
-    // Lokal state'i (input'ları) her zaman temizle
     setLocalSearchTerm('');
     setLocalFilterDomain('');
     setLocalFilterStatus('all');
-
-    // SADECE parent state kirliyse (yani bir filtre uygulanmışsa)
-    // parent state'i güncelleyerek veritabanı sorgusunu tetikle.
     if (isParentStateDirty) {
       setSearchTerm('');
       setFilterDomain('');
@@ -80,8 +73,6 @@ export function DataTable({
     );
   }
 
-  // "No data" durumunda bile filtreleme çubuğunun görünmesi için
-  // bu bloğu `return` içindeki ana `div`'in içine taşıdık.
   const filterControls = (
     <div className="p-4 border-b border-gray-200">
       <div className="flex justify-between items-center mb-4">
@@ -113,7 +104,8 @@ export function DataTable({
           <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by domain, title..."
+            // --- GÜNCELLEME BURADA ---
+            placeholder="Search domain, title, date, currency..."
             value={localSearchTerm}
             onChange={(e) => setLocalSearchTerm(e.target.value)}
             className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -146,8 +138,6 @@ export function DataTable({
           Filtrele
         </button>
 
-        {/* --- GÜNCELLENMİŞ GÖRÜNÜRLÜK KONTROLÜ --- */}
-        {/* Artık 'prop' state yerine 'lokal' state'i kontrol ediyor */}
         {(localSearchTerm || localFilterDomain || localFilterStatus !== 'all') && (
           <button
             onClick={handleFilterClear}
@@ -160,15 +150,12 @@ export function DataTable({
     </div>
   );
   
-  // "No data" durumu
   if (!isLoading && totalRecords === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        {/* Filtre çubuğu "No data" durumunda bile görünecek */}
         {filterControls}
         <div className="p-8 text-center">
           <p className="text-gray-500">
-            {/* Mesajı ayırt etmek için güncelledik */}
             {searchTerm || filterDomain || filterStatus !== 'all'
               ? 'Filtrelerinizle eşleşen kayıt bulunamadı.'
               : 'No data available. Start a scraping job to see results.'
@@ -179,7 +166,6 @@ export function DataTable({
     );
   }
 
-  // Veri olan durum
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       {filterControls}
