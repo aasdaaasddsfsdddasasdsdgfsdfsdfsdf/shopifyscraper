@@ -23,31 +23,30 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDomain, setFilterDomain] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
-  // --- YENİ FİLTRE STATE'LERİ ---
   const [filterCurrency, setFilterCurrency] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterTitle, setFilterTitle] = useState('');
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
-  // Veri yükleme fonksiyonu (artık job_id'den BAĞIMSIZ)
+  // --- loadGridData GÜNCELLENDİ (JOIN sorgusu ve filtreler) ---
   const loadGridData = useCallback(async (page: number) => {
     const offset = (page - 1) * ITEMS_PER_PAGE;
 
     // --- 1. Filtrelenmiş ve Sayfalanmış Veri Sorgusu (TÜM VERİLER) ---
     let pageQuery = supabase
       .from('scraped_data')
-      .select('*', { count: 'exact' });
-      // .eq('job_id', jobId); // BU SATIR KALDIRILDI
+      // 'product_details(*)' Supabase'in JOIN yapmasını sağlar
+      .select('*, product_details(*)', { count: 'exact' }); 
 
     // Filtreleri dinamik olarak uygula
     if (filterDomain) {
       pageQuery = pageQuery.ilike('domain', `%${filterDomain}%`);
     }
     if (filterStatus !== 'all') {
-      pageQuery = pageQuery.eq('products->>status', filterStatus);
+      // 'products->>status' -> 'product_details.status'
+      pageQuery = pageQuery.eq('product_details.status', filterStatus); 
     }
-    // --- YENİ FİLTRELER EKLENDİ (AND) ---
     if (filterCurrency) {
       pageQuery = pageQuery.ilike('currency', `%${filterCurrency}%`);
     }
@@ -55,16 +54,16 @@ function App() {
       pageQuery = pageQuery.ilike('language', `%${filterLanguage}%`);
     }
     if (filterTitle) {
-      pageQuery = pageQuery.ilike('products->>title', `%${filterTitle}%`);
+      // 'products->>title' -> 'product_details.title'
+      pageQuery = pageQuery.ilike('product_details.title', `%${filterTitle}%`);
     }
-    // --- BİTTİ ---
 
     if (searchTerm) {
-      const searchConditions = `domain.ilike.%${searchTerm}%,products->>title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
+      // 'products->>title' -> 'product_details.title'
+      const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
       pageQuery = pageQuery.or(searchConditions);
     }
 
-    // Sayfalama ve sıralamayı uygula
     const { data: pageData, error: dataError, count } = await pageQuery
       .order('date', { ascending: false })
       .range(offset, offset + ITEMS_PER_PAGE - 1);
@@ -74,26 +73,22 @@ function App() {
       setData([]);
       setTotalRecords(0);
     } else {
-      setData(pageData || []);
+      // Gelen veri 'product_details' nesnesini içerecek
+      setData(pageData as ScrapedData[] || []); 
       setTotalRecords(count || 0);
     }
 
     // --- 2. Dışa Aktarım için Tüm Filtrelenmiş Veri Sorgusu (TÜM VERİLER) ---
-    // Bu sorgu, dışa aktarma (export) butonuna basıldığında tüm filtrelenmiş veriyi
-    // (sayfalamasız olarak) almayı sağlar.
-    
     let allDataQuery = supabase
       .from('scraped_data')
-      .select('*');
-      // .eq('job_id', jobId); // BU SATIR KALDIRILDI
+      .select('*, product_details(*)'); // JOIN
 
     if (filterDomain) {
       allDataQuery = allDataQuery.ilike('domain', `%${filterDomain}%`);
     }
     if (filterStatus !== 'all') {
-      allDataQuery = allDataQuery.eq('products->>status', filterStatus);
+      allDataQuery = allDataQuery.eq('product_details.status', filterStatus); // Güncellendi
     }
-    // --- YENİ FİLTRELER EKLENDİ (AND) ---
     if (filterCurrency) {
       allDataQuery = allDataQuery.ilike('currency', `%${filterCurrency}%`);
     }
@@ -101,21 +96,21 @@ function App() {
       allDataQuery = allDataQuery.ilike('language', `%${filterLanguage}%`);
     }
     if (filterTitle) {
-      allDataQuery = allDataQuery.ilike('products->>title', `%${filterTitle}%`);
+      allDataQuery = allDataQuery.ilike('product_details.title', `%${filterTitle}%`); // Güncellendi
     }
-    // --- BİTTİ ---
     
     if (searchTerm) {
-      const searchConditions = `domain.ilike.%${searchTerm}%,products->>title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`;
+      const searchConditions = `domain.ilike.%${searchTerm}%,product_details.title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%`; // Güncellendi
       allDataQuery = allDataQuery.or(searchConditions);
     }
 
     const { data: fullData } = await allDataQuery.order('date', { ascending: false });
-    setAllData(fullData || []);
+    setAllData(fullData as ScrapedData[] || []);
 
-  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle]); // Sadece filtre state'lerine bağlı
+  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle]);
+  // --- YÜKLEME SONU ---
 
-  // Sadece en son işi (JobProgress için) yükler
+  
   const loadLatestJob = useCallback(async (jobToResume?: ScrapeJob) => {
     const { data: jobs, error } = await supabase
       .from('scrape_jobs')
@@ -132,7 +127,7 @@ function App() {
     const jobToLoad = jobToResume || jobs;
 
     if (jobToLoad) {
-      setCurrentJob(jobToLoad); // Sadece JobProgress'i günceller
+      setCurrentJob(jobToLoad); 
 
       if (jobToLoad.status === 'in_progress') {
         setIsScrapingActive(true);
@@ -143,25 +138,25 @@ function App() {
         }
       }
     }
-  }, []); // Bağımlılık yok
+  }, []); 
 
-  // Component mount edildiğinde
+  
   useEffect(() => {
-    loadLatestJob(); // Job progress'i yükle
-    loadGridData(1);  // Grid'i tüm verilerle ilk kez yükle
-  }, []); // Sadece mount'ta çalışır
+    loadLatestJob(); 
+    loadGridData(1);  
+  }, []); 
 
-  // Filtreler değiştiğinde 1. sayfaya dön
+  
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
   }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle]);
 
-  // Veri yükleme için ana useEffect (Sayfa veya filtreler değiştiğinde)
+  
   useEffect(() => {
     loadGridData(currentPage);
-  }, [currentPage, loadGridData]); // loadGridData filtreler değiştiğinde yeniden oluşur
+  }, [currentPage, loadGridData]); 
 
 
   const getTodayDateStr = (): string => {
@@ -182,7 +177,8 @@ function App() {
 
         const records = await scrapeDate(dateStr);
         if (records.length > 0) {
-          await saveRecords(job.id, records);
+          // saveRecords artık yeni yapıyla çalışıyor
+          await saveRecords(job.id, records); 
           totalRecords += records.length;
         }
 
@@ -206,7 +202,6 @@ function App() {
           setCurrentJob(updatedJob);
         }
         
-        // Grid'i yenile
         await loadGridData(currentPage);
 
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -246,7 +241,7 @@ function App() {
       }
 
       setCurrentJob(newJob);
-      setCurrentPage(1); // Yeni iş başladığında 1. sayfaya dön
+      setCurrentPage(1); 
 
       const start = new Date(startDate);
       const end = new Date(finalEndDate);
@@ -258,6 +253,7 @@ function App() {
 
         const records = await scrapeDate(dateStr);
         if (records.length > 0) {
+          // saveRecords artık yeni yapıyla çalışıyor
           await saveRecords(newJob.id, records);
           totalRecords += records.length;
         }
@@ -282,7 +278,6 @@ function App() {
           setCurrentJob(updatedJob);
         }
         
-        // Grid'i 1. sayfada yenile
         await loadGridData(1); 
 
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -319,7 +314,7 @@ function App() {
         throw new Error('Failed to update job');
       }
 
-      loadLatestJob(updatedJob); // resumeScraping'i tetikler
+      loadLatestJob(updatedJob); 
 
     } catch (error) {
       console.error('Error continuing scraping:', error);
@@ -372,15 +367,14 @@ function App() {
           totalPages={totalPages}
           totalRecords={totalRecords}
           onPageChange={handlePageChange}
-          allData={allData} // Dışa aktarım için filtrelenmiş tüm veriyi yolla
-          // Filtre state'lerini ve setter'ları prop olarak yolla
+          allData={allData} 
+          
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           filterDomain={filterDomain}
           setFilterDomain={setFilterDomain}
           filterStatus={filterStatus}
           setFilterStatus={setFilterStatus}
-          // --- YENİ PROPLAR EKLENDİ ---
           filterCurrency={filterCurrency}
           setFilterCurrency={setFilterCurrency}
           filterLanguage={filterLanguage}
