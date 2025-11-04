@@ -104,8 +104,8 @@ export function DataTable({
           <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            // --- GÜNCELLEME BURADA ---
-            placeholder="Search domain, title, date, currency..."
+            // --- DÜZELTME (Placeholder) ---
+            placeholder="Search domain, date, lang..."
             value={localSearchTerm}
             onChange={(e) => setLocalSearchTerm(e.target.value)}
             className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -189,9 +189,11 @@ export function DataTable({
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
+              {/* --- DÜZELTME: Sütun Kaldırıldı ---
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Product Title
               </th>
+              */}
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Products
               </th>
@@ -228,9 +230,11 @@ export function DataTable({
                     {row.products.status.toUpperCase()}
                   </span>
                 </td>
+                {/* --- DÜZELTME: Sütun Kaldırıldı ---
                 <td className="px-4 py-4 text-sm text-gray-900 max-w-xs truncate" title={row.products.title}>
                   {row.products.title || '-'}
                 </td>
+                */}
                 
                 <td className="px-4 py-4 py-3">
                   {row.products.status === 'open' && row.products.images.length > 0 ? (
