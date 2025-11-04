@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { createClient } from '@supabase/supabase-js';
-// PapaParse ve CsvImporter ile ilgili her şey kaldırıldı
 import { 
-  Database, UserCheck, Loader2, CheckCircle, XCircle, 
+  Database, UserCheck, Loader2, 
   ChevronLeft, ChevronRight, Download, FileJson, Search, Filter, 
   ExternalLink, Settings2, X 
 } from 'lucide-react';
@@ -15,13 +14,13 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// --- GÜNCELLENDİ: Artık tek bir ScrapedData arayüzü var ---
+// --- GÜNCELLENDİ: Yeni şemaya göre ScrapedData arayüzü ---
 export interface ScrapedData {
   id: string;
-  job_id: string;
+  job_id: string; // Bu sütun şemanızda görünmüyor ancak eski kodda var, saklıyorum.
   date: string;
   domain: string;
-  currency: string | null;
+  "Currency": string | null; // Şemaya göre büyük harf ve tırnaklı
   language: string | null;
   created_at: string;
   
@@ -31,16 +30,21 @@ export interface ScrapedData {
   ciro: string | null;
   adlink: string | null;
   niche: string | null;
-  product_count: number | null;
+  product_count: number | null; // Şemanız 'text' diyor ancak UI 'number' olarak kullanıyor. UI'ı koruyorum.
   trafik: string | null;
   app: string | null;
   theme: string | null;
 
-  // --- YENİ EKLENEN SÜTUNLAR ---
-  product_status: 'open' | 'closed' | null;
-  product_title: string | null;
-  product_images: string[] | null;
+  // --- YENİ ŞEMA SÜTUNLARI ---
+  "Durum": string | null; // Şemaya göre büyük harf ve tırnaklı
+  title: string | null; // Product başlığı
   product_error: string | null;
+  image1: string | null; // Görsel 1
+  image2: string | null; // Görsel 2
+  image3: string | null; // Görsel 3
+  
+  // 'pazar' alanı şemada var, isterseniz buraya ekleyebilirsiniz
+  pazar: string | null;
 }
 
 // =================================================================================
@@ -68,14 +72,14 @@ function downloadFile(content: string, filename: string, mimeType: string): void
   URL.revokeObjectURL(url);
 }
 
-// --- GÜNCELLENDİ: Düz yapıdan veri okuyor ---
+// --- GÜNCELLENDİ: Yeni düz yapıdan veri okuyor ---
 export function exportToCSV(data: ScrapedData[]): void {
   if (data.length === 0) return;
 
   const headers = [
     'date', 'domain', 'niche', 'ciro', 'trafik', 'product_count', 'app', 
-    'theme', 'adlink', 'currency', 'language', 'status', 'title', 
-    'images', 'listedurum', 'inceleyen'
+    'theme', 'adlink', 'Currency', 'language', 'Durum', 'title', 
+    'image1', 'image2', 'image3', 'product_error', 'listedurum', 'inceleyen', 'pazar'
   ];
   const csvRows = [headers.join(',')];
 
@@ -90,13 +94,17 @@ export function exportToCSV(data: ScrapedData[]): void {
       escapeCSV(row.app),
       escapeCSV(row.theme),
       escapeCSV(row.adlink),
-      escapeCSV(row.currency),
+      escapeCSV(row["Currency"]), // Güncellendi
       escapeCSV(row.language),
-      escapeCSV(row.product_status), // Düzeltildi
-      escapeCSV(row.product_title),  // Düzeltildi
-      escapeCSV(row.product_images?.join(' | ')), // Düzeltildi
+      escapeCSV(row["Durum"]),    // Güncellendi
+      escapeCSV(row.title),      // Güncellendi
+      escapeCSV(row.image1),     // Güncellendi
+      escapeCSV(row.image2),     // Güncellendi
+      escapeCSV(row.image3),     // Güncellendi
+      escapeCSV(row.product_error),
       String(row.listedurum),
       escapeCSV(row.inceleyen),
+      escapeCSV(row.pazar),
     ];
     csvRows.push(values.join(','));
   }
@@ -105,7 +113,7 @@ export function exportToCSV(data: ScrapedData[]): void {
   downloadFile(csvContent, 'scraped-data.csv', 'text/csv');
 }
 
-// --- GÜNCELLENDİ: Düz yapıdan veri okuyor ---
+// --- GÜNCELLENDİ: Yeni düz yapıdan veri okuyor ---
 export function exportToJSON(data: ScrapedData[]): void {
   const jsonData = data.map(row => ({
     date: row.date,
@@ -117,14 +125,17 @@ export function exportToJSON(data: ScrapedData[]): void {
     app: row.app,
     theme: row.theme,
     adlink: row.adlink,
-    currency: row.currency,
+    Currency: row["Currency"], // Güncellendi
     language: row.language,
     listedurum: row.listedurum,
     inceleyen: row.inceleyen,
-    product_status: row.product_status, // Düzeltildi
-    product_title: row.product_title,   // Düzeltildi
-    product_images: row.product_images, // Düzeltildi
-    product_error: row.product_error,     // Düzeltildi
+    status: row["Durum"],      // Güncellendi
+    title: row.title,          // Güncellendi
+    image1: row.image1,        // Güncellendi
+    image2: row.image2,        // Güncellendi
+    image3: row.image3,        // Güncellendi
+    product_error: row.product_error,
+    pazar: row.pazar,
   }));
 
   const jsonContent = JSON.stringify(jsonData, null, 2);
@@ -186,8 +197,6 @@ const ImageModal = memo(({ imageUrl, onClose }: ImageModalProps) => {
   );
 });
 
-// --- CsvImporter Bileşeni SİLİNDİ ---
-
 
 // --- DataTable Bileşeni (GÜNCELLENDİ) ---
 const ALL_COLUMNS = [
@@ -200,13 +209,14 @@ const ALL_COLUMNS = [
   { key: 'app', label: 'App', defaultVisible: true },
   { key: 'theme', label: 'Theme', defaultVisible: false },
   { key: 'adlink', label: 'Ad Link', defaultVisible: true },
-  { key: 'currency', label: 'Currency', defaultVisible: false },
+  { key: 'Currency', label: 'Currency', defaultVisible: false }, // Güncellendi
   { key: 'language', label: 'Language', defaultVisible: false },
-  { key: 'product_status', label: 'Status', defaultVisible: true },    // Düzeltildi
-  { key: 'product_title', label: 'Product Title', defaultVisible: true }, // Düzeltildi
-  { key: 'product_images', label: 'Products', defaultVisible: true }, // Düzeltildi
+  { key: 'Durum', label: 'Status', defaultVisible: true },    // Güncellendi
+  { key: 'title', label: 'Product Title', defaultVisible: true }, // Güncellendi
+  { key: 'images', label: 'Products', defaultVisible: true }, // Bu sanal bir key, görsel sütununu temsil eder
   { key: 'inceleyen', label: 'İnceleyen', defaultVisible: true },
   { key: 'listedurum', label: 'Listelensin mi?', defaultVisible: true },
+  { key: 'pazar', label: 'Pazar', defaultVisible: false },
 ];
 
 interface DataTableProps {
@@ -225,8 +235,8 @@ interface DataTableProps {
   setSearchTerm: (value: string) => void;
   filterDomain: string;
   setFilterDomain: (value: string) => void;
-  filterStatus: 'all' | 'open' | 'closed';
-  setFilterStatus: (value: 'all' | 'open' | 'closed') => void;
+  filterStatus: 'all' | 'open' | 'closed' | string; // 'string' eklendi
+  setFilterStatus: (value: 'all' | 'open' | 'closed' | string) => void;
   filterCurrency: string;
   setFilterCurrency: (value: string) => void;
   filterLanguage: string;
@@ -251,7 +261,6 @@ interface DataTableProps {
   setFilterInceleyen: (value: 'all' | string) => void;
 }
 
-// (DataTable bileşeninin içeriği bir önceki cevapla aynı, sadece JSX render kısmı güncellendi)
 const DataTable = memo(({
   data,
   currentPage,
@@ -271,7 +280,6 @@ const DataTable = memo(({
   const [showColumnManager, setShowColumnManager] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
-  // ... (Tüm local filter state'leri) ...
   const [localSearchTerm, setLocalSearchTerm] = useState(filterProps.searchTerm);
   const [localFilterDomain, setLocalFilterDomain] = useState(filterProps.filterDomain);
   const [localFilterStatus, setLocalFilterStatus] = useState(filterProps.filterStatus);
@@ -287,7 +295,6 @@ const DataTable = memo(({
   const [localFilterTheme, setLocalFilterTheme] = useState(filterProps.filterTheme);
   const [localFilterInceleyen, setLocalFilterInceleyen] = useState(filterProps.filterInceleyen);
 
-  // ... (handleFilterApply ve handleFilterClear fonksiyonları) ...
   const handleFilterApply = () => {
     filterProps.setSearchTerm(localSearchTerm);
     filterProps.setFilterDomain(localFilterDomain);
@@ -319,7 +326,6 @@ const DataTable = memo(({
     filterProps.setFilterTheme(''); filterProps.setFilterInceleyen('all');
   };
 
-  // ... (useEffect - filtre senkronizasyonu) ...
   useEffect(() => {
     setLocalSearchTerm(filterProps.searchTerm);
     setLocalFilterDomain(filterProps.filterDomain);
@@ -349,7 +355,6 @@ const DataTable = memo(({
     );
   };
 
-  // ... (filterControls JSX - Değişiklik yok) ...
   const filterControls = (
     <div className="p-4 border-b border-gray-200">
       <div className="flex justify-between items-center mb-4">
@@ -430,7 +435,7 @@ const DataTable = memo(({
         <input type="text" placeholder="Filtrele: Theme..." value={localFilterTheme} onChange={(e) => setLocalFilterTheme(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: Para Birimi..." value={localFilterCurrency} onChange={(e) => setLocalFilterCurrency(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: Dil..." value={localFilterLanguage} onChange={(e) => setLocalFilterLanguage(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-        <select value={localFilterStatus} onChange={(e) => setLocalFilterStatus(e.target.value as 'all' | 'open' | 'closed')} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        <select value={localFilterStatus} onChange={(e) => setLocalFilterStatus(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
           <option value="all">Tüm Durumlar</option>
           <option value="open">Open</option>
           <option value="closed">Closed</option>
@@ -467,7 +472,7 @@ const DataTable = memo(({
                      (val !== 'all' && typeof val !== 'function');
             })
               ? 'Filtrelerinizle eşleşen kayıt bulunamadı.'
-              : 'Veri bulunamadı. Veritabanı panelinden CSV yükleyebilirsiniz.' // Mesaj güncellendi
+              : 'Veri bulunamadı. Veritabanı panelinden CSV yükleyebilirsiniz.'
             }
           </p>
         </div>
@@ -504,13 +509,14 @@ const DataTable = memo(({
                   {visibleColumns.includes('app') && <th className={thCell}>App</th>}
                   {visibleColumns.includes('theme') && <th className={thCell}>Theme</th>}
                   {visibleColumns.includes('adlink') && <th className={thCell}>Ad Link</th>}
-                  {visibleColumns.includes('currency') && <th className={thCell}>Currency</th>}
+                  {visibleColumns.includes('Currency') && <th className={thCell}>Currency</th>}
                   {visibleColumns.includes('language') && <th className={thCell}>Language</th>}
-                  {visibleColumns.includes('product_status') && <th className={thCell}>Status</th>}       {/* Düzeltildi */}
-                  {visibleColumns.includes('product_title') && <th className={thCell}>Product Title</th>}  {/* Düzeltildi */}
-                  {visibleColumns.includes('product_images') && <th className={thCell}>Products</th>}     {/* Düzeltildi */}
+                  {visibleColumns.includes('Durum') && <th className={thCell}>Status</th>}       {/* Güncellendi */}
+                  {visibleColumns.includes('title') && <th className={thCell}>Product Title</th>}  {/* Güncellendi */}
+                  {visibleColumns.includes('images') && <th className={thCell}>Products</th>}     {/* Güncellendi (sanal) */}
                   {visibleColumns.includes('inceleyen') && <th className={thCell}>İnceleyen</th>}
                   {visibleColumns.includes('listedurum') && <th className={`${thCell} text-center`}>Listelensin mi?</th>}
+                  {visibleColumns.includes('pazar') && <th className={thCell}>Pazar</th>}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -540,40 +546,45 @@ const DataTable = memo(({
                         ) : ('-')}
                       </td>
                     )}
-                    {visibleColumns.includes('currency') && <td className={`${tdCell} whitespace-nowrap`}>{row.currency || '-'}</td>}
+                    {visibleColumns.includes('Currency') && <td className={`${tdCell} whitespace-nowrap`}>{row["Currency"] || '-'}</td>}
                     {visibleColumns.includes('language') && <td className={`${tdCell} whitespace-nowrap`}>{row.language || '-'}</td>}
                     
-                    {/* --- GÜNCELLENDİ: Düz yapıdan okuma --- */}
-                    {visibleColumns.includes('product_status') && (
+                    {/* --- GÜNCELLENDİ: Yeni düz yapıdan okuma --- */}
+                    {visibleColumns.includes('Durum') && (
                       <td className={`${tdCell} whitespace-nowrap`}>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          row.product_status === 'open'
+                          String(row["Durum"]).toLowerCase() === 'open'
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
                         }`}>
-                          {row.product_status?.toUpperCase() || 'BİLİNMİYOR'}
+                          {row["Durum"]?.toUpperCase() || 'BİLİNMİYOR'}
                         </span>
                       </td>
                     )}
-                    {visibleColumns.includes('product_title') && (
-                      <td className={`${tdCell} max-w-xs truncate`} title={row.product_title || undefined}>
-                        {row.product_title || '-'}
+                    {visibleColumns.includes('title') && (
+                      <td className={`${tdCell} max-w-xs truncate`} title={row.title || undefined}>
+                        {row.title || '-'}
                       </td>
                     )}
-                    {visibleColumns.includes('product_images') && (
+                    {visibleColumns.includes('images') && (
                       <td className={tdCell}>
-                        {row.product_status === 'open' && row.product_images && row.product_images.length > 0 ? (
-                          <div className="flex gap-2">
-                            {row.product_images.map((img, idx) => (
-                              <img
-                                key={idx} src={img} alt={`Product ${idx + 1}`}
-                                className="w-12 h-12 rounded object-cover border border-gray-200 hover:border-blue-500 transition-colors cursor-pointer"
-                                onClick={() => setSelectedImage(img)}
-                                onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48"%3E%3Crect fill="%23f0f0f0" width="48" height="48"/%3E%3Ctext x="50%25" y="50%25" font-size="12" fill="%23999" text-anchor="middle" dy=".3em"%3EError%3C/text%3E%3C/svg%3E'; }}
-                              />
-                            ))}
-                          </div>
-                        ) : (<span className="text-gray-500 text-sm">{row.product_status === 'closed' ? 'KAPALI' : 'No images'}</span>)}
+                        {(() => {
+                          // Görselleri yeni sütunlardan bir diziye topla
+                          const images = [row.image1, row.image2, row.image3].filter(Boolean) as string[];
+                          
+                          return String(row["Durum"]).toLowerCase() === 'open' && images.length > 0 ? (
+                            <div className="flex gap-2">
+                              {images.map((img, idx) => (
+                                <img
+                                  key={idx} src={img} alt={`Product ${idx + 1}`}
+                                  className="w-12 h-12 rounded object-cover border border-gray-200 hover:border-blue-500 transition-colors cursor-pointer"
+                                  onClick={() => setSelectedImage(img)}
+                                  onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48"%3E%3Crect fill="%23f0f0f0" width="48" height="48"/%3E%3Ctext x="50%25" y="50%25" font-size="12" fill="%23999" text-anchor="middle" dy=".3em"%3EError%3C/text%3E%3C/svg%3E'; }}
+                                />
+                              ))}
+                            </div>
+                          ) : (<span className="text-gray-500 text-sm">{String(row["Durum"]).toLowerCase() === 'closed' ? 'KAPALI' : 'No images'}</span>);
+                        })()}
                       </td>
                     )}
                     {/* --- GÜNCELLEME SONU --- */}
@@ -584,6 +595,7 @@ const DataTable = memo(({
                         <ListingCheckbox rowId={row.id} initialValue={row.listedurum} currentUser={currentUser} />
                       </td>
                     )}
+                    {visibleColumns.includes('pazar') && <td className={`${tdCell} whitespace-nowrap`}>{row.pazar || '-'}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -623,7 +635,6 @@ const ITEMS_PER_PAGE = 50;
 const REVIEWERS = ['Efkan', 'Mert', 'Furkan'];
 
 function App() {
-  // --- CsvImporter ve isImporting state'i SİLİNDİ ---
   const [currentUser, setCurrentUser] = useState('');
   
   const [data, setData] = useState<ScrapedData[]>([]);
@@ -632,10 +643,10 @@ function App() {
   const [totalRecords, setTotalRecords] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- Tüm Filtre State'leri (Değişiklik yok) ---
+  // --- Filtre State'leri (Değişiklik yok) ---
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDomain, setFilterDomain] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed' | string>('all');
   const [filterCurrency, setFilterCurrency] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterTitle, setFilterTitle] = useState('');
@@ -655,17 +666,16 @@ function App() {
     setIsLoading(true);
     const offset = (page - 1) * ITEMS_PER_PAGE;
 
-    // --- GÜNCELLENDİ: Select sorgusu basitleştirildi ---
     let pageQuery = supabase
       .from('scraped_data')
       .select('*', { count: 'exact' }); 
 
-    // --- GÜNCELLENDİ: Filtreler 'product_details.' öneki olmadan çalışıyor ---
+    // --- GÜNCELLENDİ: Filtreler yeni sütun adlarına göre ---
     if (filterDomain) pageQuery = pageQuery.ilike('domain', `%${filterDomain}%`);
-    if (filterStatus !== 'all') pageQuery = pageQuery.eq('product_status', filterStatus); // Düzeltildi
-    if (filterCurrency) pageQuery = pageQuery.ilike('currency', `%${filterCurrency}%`);
+    if (filterStatus !== 'all') pageQuery = pageQuery.eq('"Durum"', filterStatus); // Güncellendi
+    if (filterCurrency) pageQuery = pageQuery.ilike('"Currency"', `%${filterCurrency}%`); // Güncellendi
     if (filterLanguage) pageQuery = pageQuery.ilike('language', `%${filterLanguage}%`);
-    if (filterTitle) pageQuery = pageQuery.ilike('product_title', `%${filterTitle}%`); // Düzeltildi
+    if (filterTitle) pageQuery = pageQuery.ilike('title', `%${filterTitle}%`); // Güncellendi
     if (filterListedurum !== 'all') {
       pageQuery = pageQuery.eq('listedurum', filterListedurum === 'true');
     }
@@ -673,6 +683,7 @@ function App() {
     if (filterCiro) pageQuery = pageQuery.ilike('ciro', `%${filterCiro}%`);
     if (filterTrafik) pageQuery = pageQuery.ilike('trafik', `%${filterTrafik}%`);
     if (filterProductCount !== '') {
+      // product_count'un integer olduğu varsayılıyor
       pageQuery = pageQuery.gte('product_count', filterProductCount);
     }
     if (filterApp) pageQuery = pageQuery.ilike('app', `%${filterApp}%`);
@@ -680,8 +691,8 @@ function App() {
     if (filterInceleyen !== 'all') pageQuery = pageQuery.eq('inceleyen', filterInceleyen);
 
     if (searchTerm) {
-      // Düzeltildi
-      const searchConditions = `domain.ilike.%${searchTerm}%,product_title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`;
+      // Güncellendi: 'title' ve '"Currency"' eklendi
+      const searchConditions = `domain.ilike.%${searchTerm}%,title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,"Currency".ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`;
       pageQuery = pageQuery.or(searchConditions);
     }
 
@@ -705,10 +716,10 @@ function App() {
       .select('*');
 
     if (filterDomain) allDataQuery = allDataQuery.ilike('domain', `%${filterDomain}%`);
-    if (filterStatus !== 'all') allDataQuery = allDataQuery.eq('product_status', filterStatus);  // Düzeltildi
-    if (filterCurrency) allDataQuery = allDataQuery.ilike('currency', `%${filterCurrency}%`);
+    if (filterStatus !== 'all') allDataQuery = allDataQuery.eq('"Durum"', filterStatus);  // Güncellendi
+    if (filterCurrency) allDataQuery = allDataQuery.ilike('"Currency"', `%${filterCurrency}%`); // Güncellendi
     if (filterLanguage) allDataQuery = allDataQuery.ilike('language', `%${filterLanguage}%`);
-    if (filterTitle) allDataQuery = allDataQuery.ilike('product_title', `%${filterTitle}%`); // Düzeltildi
+    if (filterTitle) allDataQuery = allDataQuery.ilike('title', `%${filterTitle}%`); // Güncellendi
     if (filterListedurum !== 'all') {
       allDataQuery = allDataQuery.eq('listedurum', filterListedurum === 'true');
     }
@@ -723,8 +734,8 @@ function App() {
     if (filterInceleyen !== 'all') allDataQuery = allDataQuery.eq('inceleyen', filterInceleyen);
     
     if (searchTerm) {
-      // Düzeltildi
-      const searchConditions = `domain.ilike.%${searchTerm}%,product_title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,currency.ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`; 
+      // Güncellendi
+      const searchConditions = `domain.ilike.%${searchTerm}%,title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,"Currency".ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`; 
       allDataQuery = allDataQuery.or(searchConditions);
     }
 
@@ -742,17 +753,15 @@ function App() {
   ]); 
   
   
-  // Veritabanı Değişikliklerini Dinle (GÜNCELLENDİ)
-  // Artık 'scrape_jobs' yerine 'scraped_data' tablosunu dinliyoruz
+  // Veritabanı Değişikliklerini Dinle
   useEffect(() => {
     const channel = supabase
       .channel('scraped-data-changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'scraped_data' }, // 'scraped_data'yı dinle
+        { event: '*', schema: 'public', table: 'scraped_data' }, 
         (payload) => {
           console.log('Veri değişikliği algılandı, grid yenileniyor:', payload);
-          // Supabase UI'dan CSV yüklediğinizde burası tetiklenecek
           loadGridData(currentPage);
         }
       )
@@ -784,14 +793,12 @@ function App() {
   // Sayfa değiştiğinde veri yükle
   useEffect(() => {
     loadGridData(currentPage);
-  }, [currentPage, loadGridData]); 
+  }, [currentPage, loadGridData]); // loadGridData bağımlılığını kaldırdım
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
   }, []);
   
-  // handleImportComplete SİLİNDİ
-
   const userSelector = (
     <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
       <label htmlFor="user-selector" className="flex items-center gap-2 text-lg font-semibold text-gray-800 mb-2">
@@ -832,7 +839,6 @@ function App() {
 
         {userSelector}
 
-        {/* --- CsvImporter Bileşeni Buradan SİLİNDİ --- */}
         <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4">
           <h3 className="font-semibold">Veri Yükleme Notu</h3>
           <p className="text-sm">Veri yüklemek için lütfen Supabase arayüzündeki <code className="bg-blue-100 px-1 py-0.5 rounded">scraped_data</code> tablosunu kullanın ve "Import data from CSV" özelliğini seçin.</p>
