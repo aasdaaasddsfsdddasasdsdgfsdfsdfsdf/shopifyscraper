@@ -17,6 +17,14 @@ interface DataTableProps {
   setFilterDomain: (value: string) => void;
   filterStatus: 'all' | 'open' | 'closed';
   setFilterStatus: (value: 'all' | 'open' | 'closed') => void;
+  
+  // --- YENİ PROPLAR EKLENDİ ---
+  filterCurrency: string;
+  setFilterCurrency: (value: string) => void;
+  filterLanguage: string;
+  setFilterLanguage: (value: string) => void;
+  filterTitle: string;
+  setFilterTitle: (value: string) => void;
 }
 
 export function DataTable({
@@ -32,28 +40,50 @@ export function DataTable({
   filterDomain,
   setFilterDomain,
   filterStatus,
-  setFilterStatus
+  setFilterStatus,
+  // --- YENİ PROPLAR DESTRUCTURE EDİLDİ ---
+  filterCurrency,
+  setFilterCurrency,
+  filterLanguage,
+  setFilterLanguage,
+  filterTitle,
+  setFilterTitle
 }: DataTableProps) {
   
   const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
   const [localFilterDomain, setLocalFilterDomain] = useState(filterDomain);
   const [localFilterStatus, setLocalFilterStatus] = useState(filterStatus);
+  // --- YENİ LOKAL STATE'LER ---
+  const [localFilterCurrency, setLocalFilterCurrency] = useState(filterCurrency);
+  const [localFilterLanguage, setLocalFilterLanguage] = useState(filterLanguage);
+  const [localFilterTitle, setLocalFilterTitle] = useState(filterTitle);
+
 
   const handleFilterApply = () => {
     setSearchTerm(localSearchTerm);
     setFilterDomain(localFilterDomain);
     setFilterStatus(localFilterStatus);
+    // --- YENİ SETTER'LAR ÇAĞIRILDI ---
+    setFilterCurrency(localFilterCurrency);
+    setFilterLanguage(localFilterLanguage);
+    setFilterTitle(localFilterTitle);
   };
 
   // --- GÜNCELLENMİŞ handleFilterClear ---
   const handleFilterClear = () => {
     // Parent state'in (prop'ların) kirli olup olmadığını kontrol et
-    const isParentStateDirty = searchTerm || filterDomain || filterStatus !== 'all';
+    const isParentStateDirty = searchTerm || filterDomain || filterStatus !== 'all' ||
+      // --- YENİ KONTROLLER ---
+      filterCurrency || filterLanguage || filterTitle;
 
     // Lokal state'i (input'ları) her zaman temizle
     setLocalSearchTerm('');
     setLocalFilterDomain('');
     setLocalFilterStatus('all');
+    // --- YENİ LOKAL STATE'LERİ TEMİZLE ---
+    setLocalFilterCurrency('');
+    setLocalFilterLanguage('');
+    setLocalFilterTitle('');
 
     // SADECE parent state kirliyse (yani bir filtre uygulanmışsa)
     // parent state'i güncelleyerek veritabanı sorgusunu tetikle.
@@ -61,6 +91,10 @@ export function DataTable({
       setSearchTerm('');
       setFilterDomain('');
       setFilterStatus('all');
+      // --- YENİ PARENT STATE'LERİ TEMİZLE ---
+      setFilterCurrency('');
+      setFilterLanguage('');
+      setFilterTitle('');
     }
   };
 
@@ -68,7 +102,11 @@ export function DataTable({
     setLocalSearchTerm(searchTerm);
     setLocalFilterDomain(filterDomain);
     setLocalFilterStatus(filterStatus);
-  }, [searchTerm, filterDomain, filterStatus]);
+    // --- YENİ STATE'LERİ EŞİTLE ---
+    setLocalFilterCurrency(filterCurrency);
+    setLocalFilterLanguage(filterLanguage);
+    setLocalFilterTitle(filterTitle);
+  }, [searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, filterTitle]); // Yeni bağımlılıklar eklendi
 
 
   if (isLoading) {
@@ -108,23 +146,52 @@ export function DataTable({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+      {/* --- GÜNCELLENMİŞ GRİD YAPISI (4 SÜTUNLU) --- */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="relative md:col-span-1">
           <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by domain, title..."
+            placeholder="Genel Arama..."
             value={localSearchTerm}
             onChange={(e) => setLocalSearchTerm(e.target.value)}
             className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            title="Tüm sütunlarda (veya) arar: Domain, Başlık, Tarih, Para Birimi, Dil"
           />
         </div>
 
+        {/* --- YENİ INPUT: Product Title --- */}
         <input
           type="text"
-          placeholder="Filter by domain..."
+          placeholder="Filtrele: Ürün Başlığı..."
+          value={localFilterTitle}
+          onChange={(e) => setLocalFilterTitle(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+
+        <input
+          type="text"
+          placeholder="Filtrele: Domain..."
           value={localFilterDomain}
           onChange={(e) => setLocalFilterDomain(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+        
+        {/* --- YENİ INPUT: Language --- */}
+        <input
+          type="text"
+          placeholder="Filtrele: Dil..."
+          value={localFilterLanguage}
+          onChange={(e) => setLocalFilterLanguage(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+
+        {/* --- YENİ INPUT: Currency --- */}
+        <input
+          type="text"
+          placeholder="Filtrele: Para Birimi..."
+          value={localFilterCurrency}
+          onChange={(e) => setLocalFilterCurrency(e.target.value)}
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
 
@@ -133,7 +200,7 @@ export function DataTable({
           onChange={(e) => setLocalFilterStatus(e.target.value as 'all' | 'open' | 'closed')}
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          <option value="all">All Status</option>
+          <option value="all">Tüm Durumlar</option>
           <option value="open">Open</option>
           <option value="closed">Closed</option>
         </select>
@@ -147,13 +214,14 @@ export function DataTable({
         </button>
 
         {/* --- GÜNCELLENMİŞ GÖRÜNÜRLÜK KONTROLÜ --- */}
-        {/* Artık 'prop' state yerine 'lokal' state'i kontrol ediyor */}
-        {(localSearchTerm || localFilterDomain || localFilterStatus !== 'all') && (
+        {(localSearchTerm || localFilterDomain || localFilterStatus !== 'all' ||
+          localFilterCurrency || localFilterLanguage || localFilterTitle
+         ) && (
           <button
             onClick={handleFilterClear}
             className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 transition-colors"
           >
-            Clear Filters
+            Filtreleri Temizle
           </button>
         )}
       </div>
@@ -169,7 +237,8 @@ export function DataTable({
         <div className="p-8 text-center">
           <p className="text-gray-500">
             {/* Mesajı ayırt etmek için güncelledik */}
-            {searchTerm || filterDomain || filterStatus !== 'all'
+            {searchTerm || filterDomain || filterStatus !== 'all' ||
+             filterCurrency || filterLanguage || filterTitle // Yeni kontroller eklendi
               ? 'Filtrelerinizle eşleşen kayıt bulunamadı.'
               : 'No data available. Start a scraping job to see results.'
             }
