@@ -1,10 +1,6 @@
-import { supabase } from './supabase';
+import { supabase, ProductData, ScrapedData } from './supabase';
 
-export interface ProductData {
-  images: string[];
-  status: 'open' | 'closed';
-  error?: string;
-}
+export type { ProductData, ScrapedData };
 
 export interface ScrapedRecord {
   date: string;
@@ -12,25 +8,6 @@ export interface ScrapedRecord {
   currency: string;
   language: string;
   products: ProductData;
-}
-
-const BLOG_BLOCK_RE = /<div\s+class="blogContent">([\s\S]*?)<\/div>/gi;
-const HREF_DOMAIN_RE = /href="\/shop\/url\/([^"]+)"/i;
-const TYPE_TEXT_RE = /<span[^>]*class="typeText"[^>]*>([^<]+)<\/span>/i;
-const PAREN_LANG_RE = /\(\s*([A-Za-z]{3})\s*\/\s*([^)]+?)\s*\)/i;
-const FLAG_RE = /<img[^>]*src="\/flags\/([a-z]{3})\.png"/i;
-const DOMAIN_FALLBACK_RE = /([a-z0-9\-\.]+\.(?:com|net|org|shop|store|co|ca|io|online|site|shopify\.com))/gi;
-
-function cleanDomain(raw: string): string {
-  if (!raw) return '';
-  let s = String(raw).trim();
-  s = s.replace(/^https?:\/\//i, '')
-       .replace(/^\/\//, '')
-       .replace(/^www\./i, '')
-       .replace(/[.,;:()<>\s]+$/g, '');
-  const slash = s.indexOf('/');
-  if (slash >= 0) s = s.substring(0, slash);
-  return s.toLowerCase();
 }
 
 export async function scrapeDate(dateStr: string): Promise<ScrapedRecord[]> {
@@ -49,7 +26,9 @@ export async function scrapeDate(dateStr: string): Promise<ScrapedRecord[]> {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json();
+      console.error('Edge function error response:', errorData);
+      throw new Error(`HTTP error! status: ${response.status} - ${errorData.error || 'Unknown error'}`);
     }
 
     const result = await response.json();
@@ -73,26 +52,45 @@ export function formatDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+// --- DÜZELTME BAŞLANGICI: Toplu kayıtları bölerek (batch) ekleme ---
+
 export async function saveRecords(jobId: string, records: ScrapedRecord[]) {
   if (records.length === 0) return;
 
-  const dataToInsert = records.map(r => ({
-    job_id: jobId,
-    date: r.date,
-    domain: r.domain,
-    currency: r.currency,
-    language: r.language,
-    source_url: r.source_url,
-  }));
+  // 418 kaydı 50'şerli gruplara ayır
+  const BATCH_SIZE = 50;
+  
+  console.log(`[saveRecords] Starting to save ${records.length} records in batches of ${BATCH_SIZE}...`);
 
-  const { error } = await supabase
-    .from('scraped_data')
-    .insert(dataToInsert);
+  for (let i = 0; i < records.length; i += BATCH_SIZE) {
+    const batch = records.slice(i, i + BATCH_SIZE);
+    
+    console.log(`[saveRecords] Inserting batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(records.length / BATCH_SIZE)} (${batch.length} records)`);
 
-  if (error) {
-    throw new Error(`Failed to save records: ${error.message}`);
+    const dataToInsert = batch.map(r => ({
+      job_id: jobId,
+      date: r.date,
+      domain: r.domain,
+      currency: r.currency,
+      language: r.language,
+      products: r.products,
+    }));
+
+    const { error } = await supabase
+      .from('scraped_data')
+      .insert(dataToInsert);
+
+    if (error) {
+      // Eğer bir grup hata verirse, işlemi durdur ve hatayı fırlat
+      console.error(`[saveRecords] Supabase insert error on batch starting at index ${i}:`, error);
+      throw new Error(`Failed to save records (batch ${i}): ${error.message}`);
+    }
   }
+  
+  console.log(`[saveRecords] Successfully inserted all ${records.length} records.`);
 }
+// --- DÜZELTME SONU ---
+
 
 export async function updateJobProgress(
   jobId: string,
@@ -111,6 +109,7 @@ export async function updateJobProgress(
     .eq('id', jobId);
 
   if (error) {
+    console.error("Supabase update job error:", error);
     throw new Error(`Failed to update job: ${error.message}`);
   }
 }

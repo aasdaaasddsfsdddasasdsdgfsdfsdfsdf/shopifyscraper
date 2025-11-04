@@ -25,10 +25,12 @@ export function DataTable({
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
 
   const filteredData = data.filter(row => {
+    const productTitle = row.products.title || '';
     const matchesSearch = row.domain.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          row.date.includes(searchTerm) ||
                          row.currency.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         row.language.toLowerCase().includes(searchTerm.toLowerCase());
+                         row.language.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         productTitle.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesDomain = !filterDomain || row.domain.toLowerCase().includes(filterDomain.toLowerCase());
     const matchesStatus = filterStatus === 'all' || row.products.status === filterStatus;
@@ -36,7 +38,7 @@ export function DataTable({
     return matchesSearch && matchesDomain && matchesStatus;
   });
 
-  if (data.length === 0) {
+  if (allData.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200 text-center">
         <p className="text-gray-500">No data available. Start a scraping job to see results.</p>
@@ -47,6 +49,7 @@ export function DataTable({
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <div className="p-4 border-b border-gray-200">
+        {/* ... (Filtreleme ve Dışa Aktarma kısmı değişmedi) ... */}
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-800">
             Scraped Data ({totalRecords.toLocaleString()} records)
@@ -74,7 +77,7 @@ export function DataTable({
             <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by domain, date, currency..."
+              placeholder="Search by domain, title, date..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -114,7 +117,11 @@ export function DataTable({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* --- DÜZELTME BURADA ---
+        'overflow-x-auto' sınıfı kaldırıldı. Artık resimler taşabilir.
+        Eski kod: <div className="overflow-x-auto">
+      */}
+      <div className="">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -132,6 +139,9 @@ export function DataTable({
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Product Title
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Products
@@ -169,27 +179,41 @@ export function DataTable({
                     {row.products.status.toUpperCase()}
                   </span>
                 </td>
+                <td className="px-4 py-4 text-sm text-gray-900 max-w-xs truncate" title={row.products.title}>
+                  {row.products.title || '-'}
+                </td>
+                
+                {/* Bu hücre 'relative group' ve 'z-index' kodlarını içerir.
+                  Artık üst 'div'de 'overflow' olmadığı için doğru çalışacaktır.
+                */}
                 <td className="px-4 py-4 py-3">
                   {row.products.status === 'open' && row.products.images.length > 0 ? (
                     <div className="flex gap-2">
                       {row.products.images.map((img, idx) => (
-                        <a
-                          key={idx}
-                          href={img}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="View full image"
-                        >
-                          <img
-                            src={img}
-                            alt={`Product ${idx + 1}`}
-                            className="w-12 h-12 rounded object-cover border border-gray-200 hover:border-blue-500 transition-colors"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48"%3E%3Crect fill="%23f0f0f0" width="48" height="48"/%3E%3Ctext x="50%25" y="50%25" font-size="12" fill="%23999" text-anchor="middle" dy=".3em"%3EError%3C/text%3E%3C/svg%3E';
-                            }}
-                          />
-                        </a>
+                        <div key={idx} className="relative group">
+                          <a
+                            href={img}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="View full image"
+                          >
+                            <img
+                              src={img}
+                              alt={`Product ${idx + 1}`}
+                              className="w-12 h-12 rounded object-cover border border-gray-200 group-hover:border-blue-500 transition-colors cursor-pointer"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48"%3E%3Crect fill="%23f0f0f0" width="48" height="48"/%3E%3Ctext x="50%25" y="50%25" font-size="12" fill="%23999" text-anchor="middle" dy=".3em"%3EError%3C/text%3E%3C/svg%3E';
+                              }}
+                            />
+                            {/* BÜYÜK GÖRSEL (HOVER) */}
+                            <img
+                              src={img}
+                              alt="Product preview"
+                              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[300px] h-[300px] object-cover rounded-md shadow-lg border-4 border-white z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                            />
+                          </a>
+                        </div>
                       ))}
                     </div>
                   ) : (
@@ -204,6 +228,7 @@ export function DataTable({
         </table>
       </div>
 
+      {/* ... (Sayfalama kısmı değişmedi) ... */}
       {totalPages > 1 && (
         <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
           <div className="text-sm text-gray-600">
