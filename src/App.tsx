@@ -9,7 +9,7 @@ import { Database, UserCheck } from 'lucide-react';
 const ITEMS_PER_PAGE = 50;
 
 // Kullanıcı listesi
-const REVIEWERS = ['Efkan', 'Mert', 'Furkan'];
+const REVIEWERS = ['Efkan', 'Mert', 'Furkan', 'Enes', 'Görkem','Simay','Talha'];
 
 function App() {
   const [currentJob, setCurrentJob] = useState<ScrapeJob | null>(null);
