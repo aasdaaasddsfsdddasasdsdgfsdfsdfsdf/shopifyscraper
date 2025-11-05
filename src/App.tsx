@@ -17,7 +17,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // --- GÜNCELLENDİ: Yeni şemaya göre ScrapedData arayüzü ---
 export interface ScrapedData {
   id: string;
-  job_id: string; // Bu sütun şemanızda görünmüyor ancak eski kodda var, saklıyorum.
   date: string;
   domain: string;
   "Currency": string | null; // Şemaya göre büyük harf ve tırnaklı
@@ -30,7 +29,7 @@ export interface ScrapedData {
   ciro: string | null;
   adlink: string | null;
   niche: string | null;
-  product_count: number | null; // Şemanız 'text' diyor ancak UI 'number' olarak kullanıyor. UI'ı koruyorum.
+  product_count: string | null; // Şemada 'text' olarak belirtilmiş
   trafik: string | null;
   app: string | null;
   theme: string | null;
@@ -43,7 +42,6 @@ export interface ScrapedData {
   image2: string | null; // Görsel 2
   image3: string | null; // Görsel 3
   
-  // 'pazar' alanı şemada var, isterseniz buraya ekleyebilirsiniz
   pazar: string | null;
 }
 
@@ -235,8 +233,8 @@ interface DataTableProps {
   setSearchTerm: (value: string) => void;
   filterDomain: string;
   setFilterDomain: (value: string) => void;
-  filterStatus: 'all' | 'open' | 'closed' | string; // 'string' eklendi
-  setFilterStatus: (value: 'all' | 'open' | 'closed' | string) => void;
+  filterStatus: string; // 'all' | 'open' | 'closed' | string;
+  setFilterStatus: (value: string) => void;
   filterCurrency: string;
   setFilterCurrency: (value: string) => void;
   filterLanguage: string;
@@ -569,14 +567,17 @@ const DataTable = memo(({
                     {visibleColumns.includes('images') && (
                       <td className={tdCell}>
                         {(() => {
-                          // Görselleri yeni sütunlardan bir diziye topla
+                          // 1. ADIM: image1, image2, image3 sütunları bir diziye toplanır
                           const images = [row.image1, row.image2, row.image3].filter(Boolean) as string[];
                           
+                          // 2. ADIM: "Durum" "open" ise ve görsel varsa, img etiketleri oluşturulur
                           return String(row["Durum"]).toLowerCase() === 'open' && images.length > 0 ? (
                             <div className="flex gap-2">
                               {images.map((img, idx) => (
                                 <img
-                                  key={idx} src={img} alt={`Product ${idx + 1}`}
+                                  key={idx} 
+                                  src={img} // GÖRSEL BURADA KULLANILIYOR
+                                  alt={`Product ${idx + 1}`}
                                   className="w-12 h-12 rounded object-cover border border-gray-200 hover:border-blue-500 transition-colors cursor-pointer"
                                   onClick={() => setSelectedImage(img)}
                                   onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48"%3E%3Crect fill="%23f0f0f0" width="48" height="48"/%3E%3Ctext x="50%25" y="50%25" font-size="12" fill="%23999" text-anchor="middle" dy=".3em"%3EError%3C/text%3E%3C/svg%3E'; }}
@@ -646,7 +647,7 @@ function App() {
   // --- Filtre State'leri (Değişiklik yok) ---
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDomain, setFilterDomain] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed' | string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all'); // Güncellendi
   const [filterCurrency, setFilterCurrency] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterTitle, setFilterTitle] = useState('');
@@ -683,7 +684,7 @@ function App() {
     if (filterCiro) pageQuery = pageQuery.ilike('ciro', `%${filterCiro}%`);
     if (filterTrafik) pageQuery = pageQuery.ilike('trafik', `%${filterTrafik}%`);
     if (filterProductCount !== '') {
-      // product_count'un integer olduğu varsayılıyor
+      // product_count şemada text, ancak Supabase gte'yi sayısal stringler için yönetebilmeli
       pageQuery = pageQuery.gte('product_count', filterProductCount);
     }
     if (filterApp) pageQuery = pageQuery.ilike('app', `%${filterApp}%`);
@@ -793,7 +794,7 @@ function App() {
   // Sayfa değiştiğinde veri yükle
   useEffect(() => {
     loadGridData(currentPage);
-  }, [currentPage, loadGridData]); // loadGridData bağımlılığını kaldırdım
+  }, [currentPage, loadGridData]);
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
