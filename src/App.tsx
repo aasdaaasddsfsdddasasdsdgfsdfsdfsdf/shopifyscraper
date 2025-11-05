@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
-  Database, Loader2, ChevronLeft, ChevronRight, ExternalLink, Flag
+  Database, Loader2, ChevronLeft, ChevronRight, ExternalLink, Flag, Filter, Search, X
 } from 'lucide-react';
 
+// =================================================================================
+// 1. SUPABASE KURULUMU VE YENİ ARAYÜZ
+// (En son veritabanı yapısına (Durum, Currency, pazar) uygun)
+// =================================================================================
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -11,55 +15,36 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export interface ScrapedData {
   id: string;
-  date: string;
+  date: string | null;
   domain: string;
-  "Currency": string | null;
   language: string | null;
   created_at: string;
 
   listedurum: boolean | null;
   inceleyen: string | null;
 
-  ciro: string | null;
+  ciro: string | null; // Artık text (örn: "10,002")
   adlink: string | null;
   niche: string | null;
-  product_count: string | null;
+  product_count: string | null; // Artık text
   trafik: string | null;
   app: string | null;
   theme: string | null;
 
-  "Durum": string | null;
+  // CSV İLE EŞLEŞEN BÜYÜK/KÜÇÜK HARFLİ SÜTUNLAR
+  "Currency": string | null;
+  "Durum": 'open' | 'closed' | null;
   title: string | null;
-  product_error: string | null;
   image1: string | null;
   image2: string | null;
   image3: string | null;
-
   pazar: string | null;
+  product_error: string | null; // Hata bilgisi
 }
 
-const COUNTRY_MAP: { [key: string]: string } = {
-  'DE': 'Almanya',
-  'FR': 'Fransa',
-  'IT': 'İtalya',
-  'ES': 'İspanya',
-  'NL': 'Hollanda',
-  'BE': 'Belçika',
-  'AT': 'Avusturya',
-  'PL': 'Polonya',
-  'SE': 'İsveç',
-  'DK': 'Danimarka',
-  'FI': 'Finlandiya',
-  'NO': 'Norveç',
-  'IE': 'İrlanda',
-  'PT': 'Portekiz',
-  'GR': 'Yunanistan',
-  'CH': 'İsviçre',
-  'CZ': 'Çek Cumhuriyeti',
-  'RO': 'Romanya',
-  'HU': 'Macaristan',
-  'LU': 'Lüksemburg',
-};
+// =================================================================================
+// 2. YARDIMCI BİLEŞENLER
+// =================================================================================
 
 interface ProductCardProps {
   product: ScrapedData;
@@ -150,7 +135,7 @@ function ProductCard({ product, showCountryBadge }: ProductCardProps) {
           </div>
 
           <div className="flex justify-between items-center">
-            <span className="text-gray-400 text-sm">Tahmini Satış ($)</span>
+            <span className="text-gray-400 text-sm">Tahmini Satış ({product["Currency"] || '$'})</span>
             <span className="text-green-400 font-bold text-lg">{product.ciro || '-'}</span>
           </div>
         </div>
@@ -189,6 +174,11 @@ function ProductCard({ product, showCountryBadge }: ProductCardProps) {
   );
 }
 
+
+// =================================================================================
+// 3. ANA UYGULAMA (APP)
+// =================================================================================
+
 function App() {
   const [activeTab, setActiveTab] = useState<'TRY' | 'USD' | 'EUR'>('TRY');
   const [products, setProducts] = useState<ScrapedData[]>([]);
@@ -196,15 +186,24 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
+  // Filtre State'leri (Yeni eklenenler ve güncellenenler dahil)
   const [filterNiche, setFilterNiche] = useState('');
   const [filterDomain, setFilterDomain] = useState('');
   const [filterTitle, setFilterTitle] = useState('');
   const [filterCiroMin, setFilterCiroMin] = useState('');
   const [filterCiroMax, setFilterCiroMax] = useState('');
+  const [filterPazar, setFilterPazar] = useState(''); // YENİ PAZAR FİLTRESİ
+  const [filterApp, setFilterApp] = useState(''); // YENİ APP FİLTRESİ
+  const [filterDurum, setFilterDurum] = useState<'all' | 'open' | 'closed'>('open'); // Durum filtresi
 
   const ITEMS_PER_PAGE = 25;
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
+  // Sayısal filtreler için metin alanını kullanırken karşılaştırma yapmaya çalışmak yerine,
+  // bu değerler artık veritabanında metin olarak saklandığı için sadece "ilike" veya "eq"
+  // kullanmak gerekmektedir. Ancak ciroMin/Max sayısal karşılaştırma gerektirdiği için
+  // bu alanda kısıtlama yapmayıp sadece metin arama yapacağız.
+  
   const loadProducts = useCallback(async (currency: string, page: number) => {
     setIsLoading(true);
     const offset = (page - 1) * ITEMS_PER_PAGE;
@@ -213,10 +212,17 @@ function App() {
       let query = supabase
         .from('scraped_data')
         .select('*', { count: 'exact' })
+        // Aktif Sekme (Currency)
         .eq('"Currency"', currency)
-        .eq('listedurum', true)
-        .eq('"Durum"', 'open');
-
+        // Listedurum (varsayılan)
+        .eq('listedurum', true);
+        
+        // --- Durum Filtresi ---
+        if (filterDurum !== 'all') {
+             query = query.eq('"Durum"', filterDurum);
+        }
+        
+      // --- Metin Filtreleri ---
       if (filterNiche) {
         query = query.ilike('niche', `%${filterNiche}%`);
       }
@@ -226,18 +232,24 @@ function App() {
       if (filterTitle) {
         query = query.ilike('title', `%${filterTitle}%`);
       }
+      if (filterApp) { // Yeni App Filtresi
+          query = query.ilike('app', `%${filterApp}%`);
+      }
+      if (filterPazar) { // Yeni Pazar Filtresi
+          query = query.ilike('pazar', `%${filterPazar}%`);
+      }
+      
+      // --- Ciro Filtresi (Artık metin olarak karşılaştırılıyor) ---
+      // Not: "10,000" gibi metinleri sayı olarak karşılaştırmak zordur.
+      // Eğer filtreler hala sayısal karşılaştırma yapıyorsa, bu basit ilike
+      // kullanımı yanlış sonuç verebilir. Metin aramaya dönüyoruz.
       if (filterCiroMin) {
-        const minVal = parseFloat(filterCiroMin);
-        if (!isNaN(minVal)) {
-          query = query.gte('ciro', minVal);
-        }
+        query = query.ilike('ciro', `%${filterCiroMin}%`); // Metin içeriği arama
       }
       if (filterCiroMax) {
-        const maxVal = parseFloat(filterCiroMax);
-        if (!isNaN(maxVal)) {
-          query = query.lte('ciro', maxVal);
-        }
+        query = query.ilike('ciro', `%${filterCiroMax}%`); // Metin içeriği arama
       }
+
 
       const { data, error, count } = await query
         .order('date', { ascending: false })
@@ -258,7 +270,10 @@ function App() {
     }
 
     setIsLoading(false);
-  }, [filterNiche, filterDomain, filterTitle, filterCiroMin, filterCiroMax]);
+  }, [
+    filterNiche, filterDomain, filterTitle, filterCiroMin, filterCiroMax,
+    filterApp, filterPazar, filterDurum // Yeni filtreler bağımlılıklara eklendi
+  ]);
 
   useEffect(() => {
     loadProducts(activeTab, currentPage);
@@ -266,7 +281,10 @@ function App() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, filterNiche, filterDomain, filterTitle, filterCiroMin, filterCiroMax]);
+  }, [
+    activeTab, filterNiche, filterDomain, filterTitle, filterCiroMin, filterCiroMax,
+    filterApp, filterPazar, filterDurum // Yeni filtreler sayfa sıfırlamaya eklendi
+  ]);
 
   useEffect(() => {
     const channel = supabase
@@ -284,6 +302,17 @@ function App() {
       supabase.removeChannel(channel);
     };
   }, [loadProducts, activeTab, currentPage]);
+
+  const handleClearFilters = () => {
+    setFilterNiche('');
+    setFilterDomain('');
+    setFilterTitle('');
+    setFilterCiroMin('');
+    setFilterCiroMax('');
+    setFilterApp(''); // Yeni filtre temizleme
+    setFilterPazar(''); // Yeni filtre temizleme
+    setFilterDurum('open');
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -327,78 +356,122 @@ function App() {
             </button>
           </div>
 
+          {/* ============================================== */}
+          {/* YENİ KOMPAKT FİLTRE DÜZENİ */}
+          {/* ============================================== */}
           <div className="w-full max-w-4xl bg-gray-800 border border-gray-700 rounded-xl p-6 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Niş Ara</label>
-                <input
-                  type="text"
-                  placeholder="Örn: elektronik"
-                  value={filterNiche}
-                  onChange={(e) => setFilterNiche(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
-                />
+            <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                <Filter className="w-5 h-5 text-blue-400" />
+                Filtreler
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* SOL KISIM: TEMEL ARAMA */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Niş Ara</label>
+                  <input
+                    type="text"
+                    placeholder="Örn: elektronik"
+                    value={filterNiche}
+                    onChange={(e) => setFilterNiche(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Domain Ara</label>
+                  <input
+                    type="text"
+                    placeholder="Örn: amazon"
+                    value={filterDomain}
+                    onChange={(e) => setFilterDomain(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Ürün Başlığı Ara</label>
+                  <input
+                    type="text"
+                    placeholder="Örn: şarj cihazı"
+                    value={filterTitle}
+                    onChange={(e) => setFilterTitle(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Domain Ara</label>
-                <input
-                  type="text"
-                  placeholder="Örn: amazon"
-                  value={filterDomain}
-                  onChange={(e) => setFilterDomain(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
-                />
-              </div>
+              {/* SAĞ KISIM: GELİŞMİŞ FİLTRELER */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Min. Ciro</label>
+                        <input
+                            type="text" // Ciro artık string olduğu için type="text" kullandık
+                            placeholder="Min. Satış (Metin)"
+                            value={filterCiroMin}
+                            onChange={(e) => setFilterCiroMin(e.target.value)}
+                            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Max. Ciro</label>
+                        <input
+                            type="text" // Ciro artık string olduğu için type="text" kullandık
+                            placeholder="Max. Satış (Metin)"
+                            value={filterCiroMax}
+                            onChange={(e) => setFilterCiroMax(e.target.value)}
+                            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                        />
+                    </div>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Ürün Ara</label>
-                <input
-                  type="text"
-                  placeholder="Örn: şarj cihazı"
-                  value={filterTitle}
-                  onChange={(e) => setFilterTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
-                />
-              </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Ürün Durumu</label>
+                    <select
+                        value={filterDurum}
+                        onChange={(e) => setFilterDurum(e.target.value as 'all' | 'open' | 'closed')}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none transition appearance-none"
+                    >
+                        <option value="open">Açık (Open)</option>
+                        <option value="closed">Kapalı (Closed)</option>
+                        <option value="all">Tümü</option>
+                    </select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Min. Satış ($)</label>
-                <input
-                  type="number"
-                  placeholder="Minimum"
-                  value={filterCiroMin}
-                  onChange={(e) => setFilterCiroMin(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Pazar (Ülke)</label>
+                  <input
+                    type="text"
+                    placeholder="Örn: DE, TR, ES"
+                    value={filterPazar}
+                    onChange={(e) => setFilterPazar(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Kullanılan App</label>
+                  <input
+                    type="text"
+                    placeholder="Örn: Judge.me"
+                    value={filterApp}
+                    onChange={(e) => setFilterApp(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Max. Satış ($)</label>
-                <input
-                  type="number"
-                  placeholder="Maksimum"
-                  value={filterCiroMax}
-                  onChange={(e) => setFilterCiroMax(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
-                />
               </div>
             </div>
 
             <button
-              onClick={() => {
-                setFilterNiche('');
-                setFilterDomain('');
-                setFilterTitle('');
-                setFilterCiroMin('');
-                setFilterCiroMax('');
-              }}
-              className="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm font-medium transition"
+              onClick={handleClearFilters}
+              className="mt-6 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm font-medium transition"
             >
               Filtreleri Temizle
             </button>
           </div>
-
+          {/* ============================================== */}
+          
           {!isLoading && (
             <p className="text-gray-400 text-lg">
               Toplam {totalRecords} ürün bulundu
