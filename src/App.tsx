@@ -340,7 +340,6 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
       icon={Briefcase}
       color="bg-red-500"
       isLoading={isLoading}
-      valuePrefix="₺"
     />
     <StatsCard
       title="USD Pazarı"
@@ -348,7 +347,6 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
       icon={DollarSign}
       color="bg-green-500"
       isLoading={isLoading}
-      valuePrefix="$"
     />
     <StatsCard
       title="EU Pazarı (EUR)"
@@ -356,7 +354,6 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
       icon={Euro}
       color="bg-yellow-500"
       isLoading={isLoading}
-      valuePrefix="€"
     />
   </div>
 );
