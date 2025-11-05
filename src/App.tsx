@@ -19,7 +19,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // SABİT LİSTE
-const REVIEWERS = ['Efkan', 'Mert', 'Furkan'];
+const REVIEWERS = ['Efkan', 'Mert', 'Furkan', 'Simay','Enes','Görkem','Tufan'];
 
 // --- GÜNCELLENDİ: Yeni şemaya göre ScrapedData arayüzü ---
 export interface ScrapedData {
