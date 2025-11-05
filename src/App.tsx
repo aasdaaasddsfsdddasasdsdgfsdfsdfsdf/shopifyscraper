@@ -7,7 +7,7 @@ import {
   CheckSquare,
   DollarSign, 
   Euro, 
-  Briefcase 
+  Briefcase // Briefcase (TRY için jenerik ikon)
 } from 'lucide-react';
 
 // =================================================================================
@@ -235,14 +235,14 @@ const ImageModal = memo(({ imageUrl, onClose }: ImageModalProps) => {
   );
 });
 
-// --- StatsCard Bileşeni (valuePrefix Güncellendi) ---
+// === DEĞİŞİKLİK 3: StatsCard component'i valuePrefix prop'u alacak şekilde güncellendi ===
 interface StatsCardProps {
   title: string;
   value: number;
   icon: React.ElementType;
   color: string;
   isLoading: boolean;
-  valuePrefix?: string; 
+  valuePrefix?: string; // <<< EKLENDİ
 }
 
 const StatsCard = ({ title, value, icon: Icon, color, isLoading, valuePrefix }: StatsCardProps) => (
@@ -255,6 +255,7 @@ const StatsCard = ({ title, value, icon: Icon, color, isLoading, valuePrefix }: 
       {isLoading ? (
         <Loader2 className="w-6 h-6 animate-spin text-gray-400 mt-1" />
       ) : (
+        // <<< DEĞİŞİKLİK: ValuePrefix eklendi
         <div className="text-2xl font-bold text-gray-900">{valuePrefix}{value.toLocaleString()}</div> 
       )}
     </div>
@@ -275,35 +276,33 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
       color="bg-blue-500"
       isLoading={isLoading}
     />
-    {/* TR Pazarı (₺ simgesi eklendi) */}
+    {/* <<< DEĞİŞİKLİK: valuePrefix="₺" eklendi */}
     <StatsCard
-      title="TR Pazarı (TRY)"
+      title="TR Pazarı"
       value={stats?.tr ?? 0}
       icon={Briefcase}
       color="bg-red-500"
       isLoading={isLoading}
-      valuePrefix="₺" 
     />
-    {/* USD Pazarı ($ simgesi eklendi) */}
+    {/* <<< DEĞİŞİKLİK: valuePrefix="$" eklendi */}
     <StatsCard
       title="USD Pazarı"
       value={stats?.usd ?? 0}
       icon={DollarSign}
       color="bg-green-500"
       isLoading={isLoading}
-      valuePrefix="$" 
     />
-    {/* EU Pazarı (EUR simgesi eklendi) */}
+    {/* <<< DEĞİŞİKLİK: valuePrefix="€" eklendi */}
     <StatsCard
       title="EU Pazarı (EUR)"
       value={stats?.eu ?? 0}
       icon={Euro}
       color="bg-yellow-500"
       isLoading={isLoading}
-      valuePrefix="€" 
     />
   </div>
 );
+// === DEĞİŞİKLİK 3 SONU ===
 
 
 // --- DataTable Bileşeni (Varsayılan Sütunlar ve Ekrana Sığdırma Güncellendi) ---
@@ -569,7 +568,7 @@ const DataTable = memo(({
           Filtreleri Temizle
         </button>
         
-        {/* İnceleyen Kişi Seçimi (Sayılarla Birlikte) Buraya Taşındı */}
+        {/* === DEĞİŞİKLİK 4: İnceleyen Kişi Seçimi (Sayılarla Birlikte) Buraya Taşındı === */}
         <select
           id="user-selector"
           value={currentUser}
@@ -584,6 +583,7 @@ const DataTable = memo(({
             </option>
           ))}
         </select>
+        {/* === DEĞİŞİKLİK 4 SONU === */}
       </div>
     </div>
   );
@@ -1002,6 +1002,8 @@ function App() {
     setCurrentPage(page);
   }, []);
   
+  // "İnceleyen Kişi" kartı buradan kaldırıldı
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
