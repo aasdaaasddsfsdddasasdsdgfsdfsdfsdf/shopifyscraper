@@ -276,33 +276,33 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
       color="bg-blue-500"
       isLoading={isLoading}
     />
-    {/* <<< DEĞİŞİKLİK: valuePrefix="₺" eklendi */}
-    <StatsCard
-      title="TR Pazarı (TRY)"
-      value={stats?.tr ?? 0}
-      icon={"₺"}
-      color="bg-red-500"
-      isLoading={isLoading}
-      valuePrefix="₺" // <<< EKLENDİ
-    />
-    {/* <<< DEĞİŞİKLİK: valuePrefix="$" eklendi */}
-    <StatsCard
-      title="USD Pazarı"
-      value={stats?.usd ?? 0}
-      icon={DollarSign}
-      color="bg-green-500"
-      isLoading={isLoading}
-      valuePrefix="$" // <<< EKLENDİ
-    />
-    {/* <<< DEĞİŞİKLİK: valuePrefix="€" eklendi */}
-    <StatsCard
-      title="EU Pazarı (EUR)"
-      value={stats?.eu ?? 0}
-      icon={Euro}
-      color="bg-yellow-500"
-      isLoading={isLoading}
-      valuePrefix="€" // <<< EKLENDİ
-    />
+   <StatsCard
+  title="TR Pazarı (TRY)"
+  value={stats?.tr ?? 0}
+  icon="🇹🇷"
+  color="bg-red-500"
+  isLoading={isLoading}
+  valuePrefix="₺"
+/>
+
+<StatsCard
+  title="USD Pazarı"
+  value={stats?.usd ?? 0}
+  icon="🇺🇸"
+  color="bg-green-500"
+  isLoading={isLoading}
+  valuePrefix="$"
+/>
+
+<StatsCard
+  title="EU Pazarı (EUR)"
+  value={stats?.eu ?? 0}
+  icon="🇪🇺"
+  color="bg-yellow-500"
+  isLoading={isLoading}
+  valuePrefix="€"
+/>
+
   </div>
 );
 // === DEĞİŞİKLİK 3 SONU ===
