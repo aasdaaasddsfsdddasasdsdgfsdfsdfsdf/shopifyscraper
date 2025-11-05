@@ -7,7 +7,11 @@ import {
   CheckSquare,
   DollarSign, 
   Euro, 
-  Briefcase // Briefcase (TRY için jenerik ikon)
+  Briefcase, // Briefcase (TRY için jenerik ikon)
+  ChevronUp, // Sıralama için eklendi
+  ChevronDown, // Sıralama için eklendi
+  ChevronsLeft, // Sayfalandırma için eklendi
+  ChevronsRight // Sayfalandırma için eklendi
 } from 'lucide-react';
 
 // =================================================================================
@@ -361,23 +365,23 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
 
 // --- DataTable Bileşeni (Varsayılan Sütunlar ve Ekrana Sığdırma Güncellendi) ---
 const ALL_COLUMNS = [
-  { key: 'date', label: 'Date', defaultVisible: false },
-  { key: 'domain', label: 'Domain', defaultVisible: true },
-  { key: 'niche', label: 'Niche', defaultVisible: false },
-  { key: 'ciro', label: 'Ciro', defaultVisible: true },
-  { key: 'trafik', label: 'Trafik', defaultVisible: false },
-  { key: 'product_count', label: 'Ürün Sayısı', defaultVisible: false },
-  { key: 'app', label: 'App', defaultVisible: false },
-  { key: 'theme', label: 'Theme', defaultVisible: false },
-  { key: 'adlink', label: 'Ad Link', defaultVisible: true },
-  { key: 'Currency', label: 'Currency', defaultVisible: false },
-  { key: 'language', label: 'Language', defaultVisible: false },
-  { key: 'Durum', label: 'Status', defaultVisible: false },
-  { key: 'title', label: 'Product Title', defaultVisible: true },
-  { key: 'images', label: 'Products', defaultVisible: true },
-  { key: 'inceleyen', label: 'İnceleyen', defaultVisible: true },
-  { key: 'listedurum', label: 'Listelensin mi?', defaultVisible: true },
-  { key: 'pazar', label: 'Pazar', defaultVisible: false },
+  { key: 'date', label: 'Date', defaultVisible: false, sortable: true },
+  { key: 'domain', label: 'Domain', defaultVisible: true, sortable: true },
+  { key: 'niche', label: 'Niche', defaultVisible: false, sortable: true },
+  { key: 'ciro', label: 'Ciro', defaultVisible: true, sortable: true },
+  { key: 'trafik', label: 'Trafik', defaultVisible: false, sortable: true },
+  { key: 'product_count', label: 'Ürün Sayısı', defaultVisible: false, sortable: true },
+  { key: 'app', label: 'App', defaultVisible: false, sortable: true },
+  { key: 'theme', label: 'Theme', defaultVisible: false, sortable: true },
+  { key: 'adlink', label: 'Ad Link', defaultVisible: true, sortable: true },
+  { key: 'Currency', label: 'Currency', defaultVisible: false, sortable: true },
+  { key: 'language', label: 'Language', defaultVisible: false, sortable: true },
+  { key: 'Durum', label: 'Status', defaultVisible: false, sortable: true },
+  { key: 'title', label: 'Product Title', defaultVisible: true, sortable: true },
+  { key: 'images', label: 'Products', defaultVisible: true, sortable: false }, // Not sortable
+  { key: 'inceleyen', label: 'İnceleyen', defaultVisible: true, sortable: true },
+  { key: 'listedurum', label: 'Listelensin mi?', defaultVisible: true, sortable: true },
+  { key: 'pazar', label: 'Pazar', defaultVisible: false, sortable: true },
 ];
 
 interface DataTableProps {
@@ -396,6 +400,11 @@ interface DataTableProps {
   
   // <<< DEĞİŞİKLİK 6: Optimistic UI callback'i eklendi
   onOptimisticUpdate: (rowId: string, newListedurum: boolean | null, newInceleyen: string | null) => void;
+
+  // --- YENİ: Sıralama propları eklendi ---
+  sortColumn: string | null;
+  sortDirection: 'asc' | 'desc';
+  onSortChange: (columnKey: string) => void;
 
   // Filtreler ve Setter'ları
   searchTerm: string;
@@ -441,6 +450,10 @@ const DataTable = memo(({
   isStatsLoading,
   // <<< DEĞİŞİKLİK 7: onOptimisticUpdate prop'u eklendi
   onOptimisticUpdate, 
+  // --- YENİ: Sıralama propları ---
+  sortColumn,
+  sortDirection,
+  onSortChange,
   ...filterProps 
 }: DataTableProps) => {
   
@@ -450,6 +463,49 @@ const DataTable = memo(({
   const [showColumnManager, setShowColumnManager] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
+  // --- YENİ: Sayfalandırma input state'i ---
+  const [pageInput, setPageInput] = useState(String(currentPage));
+
+  useEffect(() => {
+    setPageInput(String(currentPage));
+  }, [currentPage]);
+
+  const goToPage = (page: number) => {
+    const pageNum = Math.max(1, Math.min(totalPages, page));
+    if (!isNaN(pageNum) && pageNum !== currentPage) {
+      onPageChange(pageNum);
+    } else {
+      setPageInput(String(currentPage));
+    }
+  };
+
+  const handlePageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPageInput(e.target.value);
+  };
+
+  const handlePageInputSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    goToPage(parseInt(pageInput, 10));
+  };
+  
+  const handlePageInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+          e.preventDefault();
+          goToPage(parseInt(pageInput, 10));
+      }
+  };
+  
+  const handlePageInputBlur = () => {
+     const pageNum = parseInt(pageInput, 10);
+     if (isNaN(pageNum)) {
+         setPageInput(String(currentPage)); // Geçersizse sıfırla
+     } else {
+         goToPage(pageNum); // Sayfaya git (sınırlar içinde)
+     }
+  };
+  // --- BİTTİ: Sayfalandırma input ---
+
+
   const [localSearchTerm, setLocalSearchTerm] = useState(filterProps.searchTerm);
   const [localFilterDomain, setLocalFilterDomain] = useState(filterProps.filterDomain);
   const [localFilterStatus, setLocalFilterStatus] = useState(filterProps.filterStatus);
@@ -523,6 +579,18 @@ const DataTable = memo(({
     setVisibleColumns(prev => 
       prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]
     );
+  };
+
+  // --- YENİ: Sıralama ikon helper'ı ---
+  const getSortIcon = (columnKey: string) => {
+    if (sortColumn !== columnKey) {
+      // Aktif olmayan sütun
+      return <ChevronDown className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />;
+    }
+    if (sortDirection === 'asc') {
+      return <ChevronUp className="w-4 h-4 text-blue-600" />;
+    }
+    return <ChevronDown className="w-4 h-4 text-blue-600" />;
   };
 
   // --- filterControls (Değişiklik yok) ---
@@ -666,6 +734,7 @@ const DataTable = memo(({
   }
 
   const thCell = "px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap";
+  const thSortableCell = `${thCell} cursor-pointer group hover:bg-gray-100 select-none`;
   const tdCell = "px-4 py-4 text-sm text-gray-900";
 
   return (
@@ -685,23 +754,26 @@ const DataTable = memo(({
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {visibleColumns.includes('date') && <th className={thCell}>Date</th>}
-                  {visibleColumns.includes('domain') && <th className={thCell}>Domain</th>}
-                  {visibleColumns.includes('niche') && <th className={thCell}>Niche</th>}
-                  {visibleColumns.includes('ciro') && <th className={thCell}>Ciro</th>}
-                  {visibleColumns.includes('trafik') && <th className={thCell}>Trafik</th>}
-                  {visibleColumns.includes('product_count') && <th className={thCell}>Ürün Sayısı</th>}
-                  {visibleColumns.includes('app') && <th className={thCell}>App</th>}
-                  {visibleColumns.includes('theme') && <th className={thCell}>Theme</th>}
-                  {visibleColumns.includes('adlink') && <th className={thCell}>Ad Link</th>}
-                  {visibleColumns.includes('Currency') && <th className={thCell}>Currency</th>}
-                  {visibleColumns.includes('language') && <th className={thCell}>Language</th>}
-                  {visibleColumns.includes('Durum') && <th className={thCell}>Status</th>}       
-                  {visibleColumns.includes('title') && <th className={thCell}>Product Title</th>}  
-                  {visibleColumns.includes('images') && <th className={thCell}>Products</th>}     
-                  {visibleColumns.includes('inceleyen') && <th className={thCell}>İnceleyen</th>}
-                  {visibleColumns.includes('listedurum') && <th className={`${thCell} text-center`}>Listelensin mi?</th>}
-                  {visibleColumns.includes('pazar') && <th className={thCell}>Pazar</th>}
+                  {/* --- YENİ: Sıralanabilir Başlıklar --- */}
+                  {visibleColumns.includes('date') && <th className={thSortableCell} onClick={() => onSortChange('date')}><div className="flex items-center gap-1">Date {getSortIcon('date')}</div></th>}
+                  {visibleColumns.includes('domain') && <th className={thSortableCell} onClick={() => onSortChange('domain')}><div className="flex items-center gap-1">Domain {getSortIcon('domain')}</div></th>}
+                  {visibleColumns.includes('niche') && <th className={thSortableCell} onClick={() => onSortChange('niche')}><div className="flex items-center gap-1">Niche {getSortIcon('niche')}</div></th>}
+                  {visibleColumns.includes('ciro') && <th className={thSortableCell} onClick={() => onSortChange('ciro')}><div className="flex items-center gap-1">Ciro {getSortIcon('ciro')}</div></th>}
+                  {visibleColumns.includes('trafik') && <th className={thSortableCell} onClick={() => onSortChange('trafik')}><div className="flex items-center gap-1">Trafik {getSortIcon('trafik')}</div></th>}
+                  {visibleColumns.includes('product_count') && <th className={thSortableCell} onClick={() => onSortChange('product_count')}><div className="flex items-center gap-1">Ürün Sayısı {getSortIcon('product_count')}</div></th>}
+                  {visibleColumns.includes('app') && <th className={thSortableCell} onClick={() => onSortChange('app')}><div className="flex items-center gap-1">App {getSortIcon('app')}</div></th>}
+                  {visibleColumns.includes('theme') && <th className={thSortableCell} onClick={() => onSortChange('theme')}><div className="flex items-center gap-1">Theme {getSortIcon('theme')}</div></th>}
+                  {visibleColumns.includes('adlink') && <th className={thSortableCell} onClick={() => onSortChange('adlink')}><div className="flex items-center gap-1">Ad Link {getSortIcon('adlink')}</div></th>}
+                  {visibleColumns.includes('Currency') && <th className={thSortableCell} onClick={() => onSortChange('Currency')}><div className="flex items-center gap-1">Currency {getSortIcon('Currency')}</div></th>}
+                  {visibleColumns.includes('language') && <th className={thSortableCell} onClick={() => onSortChange('language')}><div className="flex items-center gap-1">Language {getSortIcon('language')}</div></th>}
+                  {visibleColumns.includes('Durum') && <th className={thSortableCell} onClick={() => onSortChange('Durum')}><div className="flex items-center gap-1">Status {getSortIcon('Durum')}</div></th>}       
+                  {visibleColumns.includes('title') && <th className={thSortableCell} onClick={() => onSortChange('title')}><div className="flex items-center gap-1">Product Title {getSortIcon('title')}</div></th>}  
+                  
+                  {visibleColumns.includes('images') && <th className={thCell}>Products</th>} {/* Sıralanamaz */}
+                  
+                  {visibleColumns.includes('inceleyen') && <th className={thSortableCell} onClick={() => onSortChange('inceleyen')}><div className="flex items-center gap-1">İnceleyen {getSortIcon('inceleyen')}</div></th>}
+                  {visibleColumns.includes('listedurum') && <th className={`${thSortableCell} text-center`} onClick={() => onSortChange('listedurum')}><div className="flex items-center justify-center gap-1">Listelensin mi? {getSortIcon('listedurum')}</div></th>}
+                  {visibleColumns.includes('pazar') && <th className={thSortableCell} onClick={() => onSortChange('pazar')}><div className="flex items-center gap-1">Pazar {getSortIcon('pazar')}</div></th>}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -796,17 +868,66 @@ const DataTable = memo(({
               </tbody>
             </table>
           </div>
+          
+          {/* --- YENİ: Gelişmiş Sayfalandırma --- */}
           {totalPages > 1 && (
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
               <div className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages} ({data.length} visible of {totalRecords.toLocaleString()} matching records)
+                Toplam {totalRecords.toLocaleString()} kayıttan {data.length} tanesi gösteriliyor.
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => onPageChange(1)} 
+                  disabled={currentPage === 1} 
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="İlk Sayfa"
+                >
+                  <ChevronsLeft className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={() => onPageChange(currentPage - 1)} 
+                  disabled={currentPage === 1} 
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Önceki Sayfa"
+                >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages} className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                
+                <form onSubmit={handlePageInputSubmit} className="flex items-center gap-1.5">
+                  <span className="text-sm text-gray-600">
+                    Sayfa
+                  </span>
+                  <input
+                    type="number"
+                    value={pageInput}
+                    onChange={handlePageInputChange}
+                    onKeyDown={handlePageInputKeyDown}
+                    onBlur={handlePageInputBlur}
+                    min="1"
+                    max={totalPages}
+                    className="w-16 px-2 py-1 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    aria-label="Gitmek istediğiniz sayfa"
+                  />
+                  <span className="text-sm text-gray-600">
+                     / {totalPages}
+                  </span>
+                </form>
+                
+                <button 
+                  onClick={() => onPageChange(currentPage + 1)} 
+                  disabled={currentPage === totalPages} 
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Sonraki Sayfa"
+                >
                   <ChevronRight className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={() => onPageChange(totalPages)} 
+                  disabled={currentPage === totalPages} 
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Son Sayfa"
+                >
+                  <ChevronsRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -842,6 +963,10 @@ function App() {
   const [statsData, setStatsData] = useState<StatsData | null>(null);
   const [reviewerStats, setReviewerStats] = useState<ReviewerStat[]>([]); 
   const [isStatsLoading, setIsStatsLoading] = useState(true);
+
+  // --- YENİ: Sıralama State'i ---
+  const [sortColumn, setSortColumn] = useState<string>('date'); // Varsayılan sıralama
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc'); // Varsayılan yön
 
   // --- Filtre State'leri (Değişiklik yok) ---
   const [searchTerm, setSearchTerm] = useState('');
@@ -913,7 +1038,7 @@ function App() {
   }, []); 
 
 
-  // --- Veri Yükleme Fonksiyonu (Filtreler için) ---
+  // --- Veri Yükleme Fonksiyonu (Filtreler ve SIRALAMA için) ---
   const loadGridData = useCallback(async (page: number) => {
     setIsLoading(true);
     const offset = (page - 1) * ITEMS_PER_PAGE;
@@ -954,9 +1079,26 @@ function App() {
       pageQuery = pageQuery.or(searchConditions);
     }
 
+    // --- YENİ: Dinamik Sıralama ---
+    let primarySortColumn = sortColumn || 'date';
+    let primaryAscending = sortDirection === 'asc';
+    if (sortColumn === null) { // Varsayılan duruma geri dön
+        primarySortColumn = 'date';
+        primaryAscending = false;
+    }
+    
+    // Ana sıralamayı uygula
+    pageQuery = pageQuery.order(primarySortColumn, { ascending: primaryAscending });
+    
+    // Tutarlılık için ikincil bir sıralama ekle (eğer ana sıralama domain değilse)
+    if (primarySortColumn !== 'domain') {
+        pageQuery = pageQuery.order('domain', { ascending: true });
+    }
+    // --- BİTTİ: Dinamik Sıralama ---
+
     const { data: pageData, error: dataError, count } = await pageQuery
-      .order('date', { ascending: false })
-      .order('domain', { ascending: true }) 
+      // .order('date', { ascending: false }) // Eski sıralama kaldırıldı
+      // .order('domain', { ascending: true }) // Eski sıralama kaldırıldı
       .range(offset, offset + ITEMS_PER_PAGE - 1);
 
     if (dataError) {
@@ -968,10 +1110,12 @@ function App() {
       setTotalRecords(count || 0);
     }
 
+    // --- `allData` (Export) sorgusu ---
     let allDataQuery = supabase
       .from('scraped_data')
       .select('*');
 
+    // Filtreleri `allDataQuery`'ye de uygula
     if (filterDomain) allDataQuery = allDataQuery.ilike('domain', `%${filterDomain}%`);
     if (filterStatus !== 'all') allDataQuery = allDataQuery.eq('"Durum"', filterStatus);  
     if (filterCurrency) allDataQuery = allDataQuery.ilike('"Currency"', `%${filterCurrency}%`); 
@@ -999,9 +1143,15 @@ function App() {
       allDataQuery = allDataQuery.or(searchConditions);
     }
 
+    // `allDataQuery` için de sıralamayı uygula
+    allDataQuery = allDataQuery.order(primarySortColumn, { ascending: primaryAscending });
+    if (primarySortColumn !== 'domain') {
+        allDataQuery = allDataQuery.order('domain', { ascending: true });
+    }
+
     const { data: fullData } = await allDataQuery
-      .order('date', { ascending: false })
-      .order('domain', { ascending: true });
+      // .order('date', { ascending: false }) // Eski sıralama kaldırıldı
+      // .order('domain', { ascending: true }); // Eski sıralama kaldırıldı
     
     setAllData(fullData as ScrapedData[] || []);
     setIsLoading(false);
@@ -1009,7 +1159,8 @@ function App() {
   }, [
     searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, 
     filterTitle, filterListedurum, filterNiche, filterCiro, filterTrafik, 
-    filterProductCount, filterApp, filterTheme, filterInceleyen
+    filterProductCount, filterApp, filterTheme, filterInceleyen,
+    sortColumn, sortDirection // <<< YENİ: Bağımlılıklara eklendi
   ]); 
   
   
@@ -1059,7 +1210,7 @@ function App() {
   }, [loadGridData, loadStatsData]); // loadGridData'ya bağımlı
 
   
-  // Filtreler değiştiğinde sayfayı sıfırla
+  // Filtreler veya Sıralama değiştiğinde sayfayı sıfırla
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
@@ -1070,7 +1221,8 @@ function App() {
   }, [
     searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, 
     filterTitle, filterListedurum, filterNiche, filterCiro, filterTrafik, 
-    filterProductCount, filterApp, filterTheme, filterInceleyen
+    filterProductCount, filterApp, filterTheme, filterInceleyen,
+    sortColumn, sortDirection // <<< YENİ: Sıralama eklendi
   ]); 
 
   
@@ -1095,6 +1247,22 @@ function App() {
     );
   }, []); // Boş bağımlılık dizisi, bu fonksiyonun referansının değişmemesini sağlar.
 
+  // --- YENİ: Sıralama değiştirme handler'ı ---
+  const handleSortChange = useCallback((columnKey: string) => {
+    // Tıklanan sütun zaten aktif sütunsa, yönü değiştir
+    if (sortColumn === columnKey) {
+      setSortDirection(prevDir => prevDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Değilse, yeni sütunu ayarla ve varsayılan olarak 'asc' yap
+      // (Tarih, ciro gibi sütunlar için 'desc' daha mantıklı olabilir ama şimdilik 'asc' basit)
+      setSortColumn(columnKey);
+      setSortDirection('asc');
+    }
+    // Sıralama değiştiğinde 1. sayfaya dön (yukarıdaki useEffect halledecek)
+    // setCurrentPage(1); // Bu useEffect tarafından tetikleniyor zaten
+  }, [sortColumn]); // sortColumn bağımlılığı
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -1109,7 +1277,7 @@ function App() {
         {/* Veri Kartları */}
         <StatsCards stats={statsData} isLoading={isStatsLoading} />
 
-        {/* <<< DEĞİŞİKLİK 11: handleOptimisticUpdate prop'u DataTable'a iletildi >>> */}
+        {/* <<< DEĞİŞİKLİK 11: handleOptimisticUpdate ve Sıralama prop'ları DataTable'a iletildi >>> */}
         <DataTable
           data={data}
           currentPage={currentPage}
@@ -1126,6 +1294,11 @@ function App() {
           reviewers={REVIEWERS}
           
           onOptimisticUpdate={handleOptimisticUpdate}
+          
+          // --- YENİ: Sıralama propları ---
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
           
           // ... (Tüm filtre prop'ları) ...
           searchTerm={searchTerm} setSearchTerm={setSearchTerm}
