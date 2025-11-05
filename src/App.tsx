@@ -429,11 +429,19 @@ const DataTable = memo(({
           <option value="open">Open</option>
           <option value="closed">Closed</option>
         </select>
-        <select value={localFilterListedurum} onChange={(e) => setLocalFilterListedurum(e.target.value as 'all' | 'true' | 'false')} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        
+        {/* === DEĞİŞİKLİK 1: Listelensin mi? Filtresi === */}
+        <select
+          value={localFilterListedurum}
+          onChange={(e) => setLocalFilterListedurum(e.target.value as 'all' | 'true' | 'false')}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
           <option value="all">Tüm Listeleme</option>
-          <option value="true">Listelenenler</option>
-          <option value="false">Listelenmeyenler</option>
+          <option value="true">Evet</option>
+          <option value="false">Hayır</option>
         </select>
+        {/* === DEĞİŞİKLİK 1 SONU === */}
+        
         <select value={localFilterInceleyen} onChange={(e) => setLocalFilterInceleyen(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
           <option value="all">Tüm İnceleyenler</option>
           {reviewers.map(r => (<option key={r} value={r}>{r}</option>))}
@@ -550,11 +558,15 @@ const DataTable = memo(({
                         </span>
                       </td>
                     )}
+                    
+                    {/* === DEĞİŞİKLİK 2: Title Genişliği Sınırlandı === */}
                     {visibleColumns.includes('title') && (
-                      <td className={`${tdCell} max-w-xs truncate`} title={row.title || undefined}>
+                      <td className={`${tdCell} max-w-64 truncate`} title={row.title || undefined}>
                         {row.title || '-'}
                       </td>
                     )}
+                    {/* === DEĞİŞİKLİK 2 SONU === */}
+                    
                     {visibleColumns.includes('images') && (
                       <td className={tdCell}>
                         {(() => {
