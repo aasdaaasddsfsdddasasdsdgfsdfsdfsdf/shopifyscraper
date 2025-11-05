@@ -4,7 +4,7 @@ import {
   Database, UserCheck, Loader2, 
   ChevronLeft, ChevronRight, Search, Filter, 
   ExternalLink, Settings2, X,
-  CheckSquare, // İkonlar eklendi
+  CheckSquare,
   DollarSign, 
   Euro, 
   Briefcase 
@@ -17,6 +17,9 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// SABİT LİSTE
+const REVIEWERS = ['Efkan', 'Mert', 'Furkan'];
 
 // --- GÜNCELLENDİ: Yeni şemaya göre ScrapedData arayüzü ---
 export interface ScrapedData {
@@ -49,14 +52,20 @@ export interface ScrapedData {
   pazar: string | null;
 }
 
-// === DEĞİŞİKLİK 1: Veri Kartları için yeni arayüz ===
+// --- Veri Kartları için arayüz ---
 interface StatsData {
   toplam: number;
   tr: number;
   usd: number;
   eu: number;
 }
+// === DEĞİŞİKLİK 1: İnceleyen Kişi Sayıları için Arayüz ===
+interface ReviewerStat {
+  name: string;
+  count: number;
+}
 // === DEĞİŞİKLİK 1 SONU ===
+
 
 // =================================================================================
 // 2. EXPORT FONKSİYONLARI (KODDA KULLANILMIYOR AMA SİLİNMEDİ)
@@ -228,7 +237,7 @@ const ImageModal = memo(({ imageUrl, onClose }: ImageModalProps) => {
   );
 });
 
-// --- DEĞİŞİKLİK 2: Veri Kartları (Stats) Bileşeni Eklendi ---
+// --- StatsCards Bileşeni (Değişiklik yok) ---
 interface StatsCardProps {
   title: string;
   value: number;
@@ -270,7 +279,7 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
     <StatsCard
       title="TR Pazarı (TRY)"
       value={stats?.tr ?? 0}
-      icon={Briefcase} // Lira ikonu yok, jenerik bir ikon
+      icon={Briefcase}
       color="bg-red-500"
       isLoading={isLoading}
     />
@@ -290,7 +299,6 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
     />
   </div>
 );
-// --- DEĞİŞİKLİK 2 SONU ---
 
 
 // --- DataTable Bileşeni (Varsayılan Sütunlar ve Ekrana Sığdırma Güncellendi) ---
@@ -314,6 +322,7 @@ const ALL_COLUMNS = [
   { key: 'pazar', label: 'Pazar', defaultVisible: false },
 ];
 
+// === DEĞİŞİKLİK 2: DataTableProps güncellendi ===
 interface DataTableProps {
   data: ScrapedData[];
   currentPage: number;
@@ -323,7 +332,10 @@ interface DataTableProps {
   allData: ScrapedData[]; 
   isLoading: boolean;
   currentUser: string; 
-  reviewers: string[];
+  setCurrentUser: (value: string) => void; // Eklendi
+  reviewers: string[]; // Bu artık kullanılmayacak, reviewerStats kullanılacak
+  reviewerStats: ReviewerStat[]; // Eklendi
+  isStatsLoading: boolean; // Eklendi
   
   // Filtreler ve Setter'ları
   searchTerm: string;
@@ -355,6 +367,7 @@ interface DataTableProps {
   filterInceleyen: 'all' | string;
   setFilterInceleyen: (value: 'all' | string) => void;
 }
+// === DEĞİŞİKLİK 2 SONU ===
 
 const DataTable = memo(({
   data,
@@ -362,10 +375,13 @@ const DataTable = memo(({
   totalPages,
   totalRecords,
   onPageChange,
-  // allData prop'u kaldırıldı
   isLoading,
   currentUser,
-  reviewers,
+  // === DEĞİŞİKLİK 3: Yeni proplar alındı ===
+  setCurrentUser,
+  reviewerStats,
+  isStatsLoading,
+  // === DEĞİŞİKLİK 3 SONU ===
   ...filterProps 
 }: DataTableProps) => {
   
@@ -499,7 +515,7 @@ const DataTable = memo(({
         </div>
       </div>
       
-      {/* Filtre Inputları (Değişiklik yok) */}
+      {/* === DEĞİŞİKLİK 4: Filtre Gridi Güncellendi (UserSelector eklendi) === */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         <div className="relative md:col-span-2">
           <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
@@ -515,19 +531,20 @@ const DataTable = memo(({
         <input type="text" placeholder="Filtrele: Ciro..." value={localFilterCiro} onChange={(e) => setLocalFilterCiro(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: Trafik..." value={localFilterTrafik} onChange={(e) => setLocalFilterTrafik(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="number" placeholder="Filtrele: Min. Ürün Sayısı" value={localFilterProductCount} onChange={(e) => setLocalFilterProductCount(e.target.value === '' ? '' : parseInt(e.target.value))} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        
         <input type="text" placeholder="Filtrele: Domain..." value={localFilterDomain} onChange={(e) => setLocalFilterDomain(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: Ürün Başlığı..." value={localFilterTitle} onChange={(e) => setLocalFilterTitle(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: App..." value={localFilterApp} onChange={(e) => setLocalFilterApp(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: Theme..." value={localFilterTheme} onChange={(e) => setLocalFilterTheme(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: Para Birimi..." value={localFilterCurrency} onChange={(e) => setLocalFilterCurrency(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: Dil..." value={localFilterLanguage} onChange={(e) => setLocalFilterLanguage(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        
         <select value={localFilterStatus} onChange={(e) => setLocalFilterStatus(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
           <option value="all">Tüm Durumlar</option>
           <option value="open">Open</option>
           <option value="closed">Closed</option>
         </select>
         
-        {/* === Listelensin mi? Filtresi (Evet/Hayır) === */}
         <select
           value={localFilterListedurum}
           onChange={(e) => setLocalFilterListedurum(e.target.value as 'all' | 'true' | 'false')}
@@ -537,19 +554,38 @@ const DataTable = memo(({
           <option value="true">Evet</option>
           <option value="false">Hayır</option>
         </select>
-        {/* === Filtre SONU === */}
         
         <select value={localFilterInceleyen} onChange={(e) => setLocalFilterInceleyen(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-          <option value="all">Tüm İnceleyenler</option>
-          {reviewers.map(r => (<option key={r} value={r}>{r}</option>))}
+          <option value="all">Filtrele: İnceleyen</option>
+          {/* İnceleyen listesi artık statik REVIEWERS listesinden geliyor */}
+          {REVIEWERS.map(r => (<option key={r} value={r}>{r}</option>))}
         </select>
+        
         <button onClick={handleFilterApply} className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
           <Filter className="w-4 h-4" /> Filtrele
         </button>
+        
         <button onClick={handleFilterClear} className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 transition-colors">
           Filtreleri Temizle
         </button>
+        
+        {/* İnceleyen Kişi Seçimi (Sayılarla Birlikte) Buraya Taşındı */}
+        <select
+          id="user-selector"
+          value={currentUser}
+          onChange={(e) => setCurrentUser(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          title="İşlem yapmak için inceleyen kişiyi seçin"
+        >
+          <option value="">İnceleyen Seç...</option>
+          {reviewerStats.map(stat => (
+            <option key={stat.name} value={stat.name}>
+              {stat.name} ({isStatsLoading ? '...' : stat.count})
+            </option>
+          ))}
+        </select>
       </div>
+      {/* === DEĞİŞİKLİK 4 SONU === */}
     </div>
   );
   
@@ -566,7 +602,7 @@ const DataTable = memo(({
                      (val !== 'all' && typeof val !== 'function');
             })
               ? 'Filtrelerinizle eşleşen kayıt bulunamadı.'
-              : 'Veri bulunamadı.' // Mesaj güncellendi
+              : 'Veri bulunamadı.'
             }
           </p>
         </div>
@@ -590,11 +626,8 @@ const DataTable = memo(({
 
       {!isLoading && (
         <>
-          {/* === Ekrana Sığdırma (Scroll Yok) === */}
           <div className="overflow-x-auto">
-            {/* min-w-[...] kaldırıldı */}
             <table className="w-full">
-            {/* === Ekrana Sığdırma SONU === */}
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   {visibleColumns.includes('date') && <th className={thCell}>Date</th>}
@@ -605,7 +638,7 @@ const DataTable = memo(({
                   {visibleColumns.includes('product_count') && <th className={thCell}>Ürün Sayısı</th>}
                   {visibleColumns.includes('app') && <th className={thCell}>App</th>}
                   {visibleColumns.includes('theme') && <th className={thCell}>Theme</th>}
-                  {visibleColumns.includes('adlink') && <th className={thCell}>Ad Link</th>}
+                  {visibleColumns.includes('adlink') && <th className{...thCell}>Ad Link</th>}
                   {visibleColumns.includes('Currency') && <th className={thCell}>Currency</th>}
                   {visibleColumns.includes('language') && <th className={thCell}>Language</th>}
                   {visibleColumns.includes('Durum') && <th className={thCell}>Status</th>}       
@@ -658,13 +691,11 @@ const DataTable = memo(({
                       </td>
                     )}
                     
-                    {/* === Title Genişliği Sınırlı === */}
                     {visibleColumns.includes('title') && (
                       <td className={`${tdCell} max-w-64 truncate`} title={row.title || undefined}>
                         {row.title || '-'}
                       </td>
                     )}
-                    {/* === Title SONU === */}
                     
                     {visibleColumns.includes('images') && (
                       <td className={tdCell}>
@@ -690,7 +721,6 @@ const DataTable = memo(({
                     
                     {visibleColumns.includes('inceleyen') && <td className={`${tdCell} whitespace-nowrap`}>{row.inceleyen || '-'}</td>}
                     
-                    {/* --- Grid İçi Dropdown Kullanılır --- */}
                     {visibleColumns.includes('listedurum') && (
                       <td className={`${tdCell} text-center`}>
                         <ListingDropdown 
@@ -738,7 +768,7 @@ const DataTable = memo(({
 // =================================================================================
 
 const ITEMS_PER_PAGE = 50;
-const REVIEWERS = ['Efkan', 'Mert', 'Furkan'];
+// REVIEWERS sabiti yukarı taşındı
 
 function App() {
   const [currentUser, setCurrentUser] = useState('');
@@ -749,10 +779,10 @@ function App() {
   const [totalRecords, setTotalRecords] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // === DEĞİŞİKLİK 3: İstatistikler için state eklendi ===
+  // Stats State
   const [statsData, setStatsData] = useState<StatsData | null>(null);
+  const [reviewerStats, setReviewerStats] = useState<ReviewerStat[]>([]); // Güncellendi
   const [isStatsLoading, setIsStatsLoading] = useState(true);
-  // === DEĞİŞİKLİK 3 SONU ===
 
   // --- Filtre State'leri (Değişiklik yok) ---
   const [searchTerm, setSearchTerm] = useState('');
@@ -772,32 +802,56 @@ function App() {
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
-  // --- DEĞİŞİKLİK 4: İstatistikleri yüklemek için ayrı fonksiyon ---
+  // === DEĞİŞİKLİK 5: İstatistik Yükleme Fonksiyonu Güncellendi (İnceleyen Sayıları Eklendi) ===
   const loadStatsData = useCallback(async () => {
     setIsStatsLoading(true);
     try {
-      // head: true sadece count'u alır, datayı çekmez (daha hızlı)
+      // Pazar Yeri İstatistikleri
       const toplamQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).eq('listedurum', true);
       const trQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).eq('listedurum', true).eq('"Currency"', 'TRY');
       const usdQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).eq('listedurum', true).eq('"Currency"', 'USD');
       const euQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).eq('listedurum', true).eq('"Currency"', 'EUR');
 
-      // 4 sorguyu aynı anda çalıştır
-      const [toplamRes, trRes, usdRes, euRes] = await Promise.all([toplamQuery, trQuery, usdQuery, euQuery]);
+      // İnceleyen Kişi Sayıları (Sadece 'listedurum' true veya false olanlar, null olmayanlar)
+      const reviewerCountPromises = REVIEWERS.map(name =>
+        supabase
+          .from('scraped_data')
+          .select('id', { count: 'exact', head: true })
+          .eq('inceleyen', name)
+          .not('listedurum', 'is', null) // Sadece 'Evet' veya 'Hayır' dediklerini say
+      );
+      
+      const [toplamRes, trRes, usdRes, euRes, ...reviewerResults] = await Promise.all([
+        toplamQuery, 
+        trQuery, 
+        usdQuery, 
+        euQuery, 
+        ...reviewerCountPromises
+      ]);
 
+      // Pazar Yeri State'ini ayarla
       setStatsData({
         toplam: toplamRes.count || 0,
         tr: trRes.count || 0,
         usd: usdRes.count || 0,
         eu: euRes.count || 0,
       });
+      
+      // İnceleyen Kişi State'ini ayarla
+      const newReviewerStats = reviewerResults.map((res, index) => ({
+        name: REVIEWERS[index],
+        count: res.count || 0,
+      }));
+      setReviewerStats(newReviewerStats);
+
     } catch (error) {
       console.error("Error loading stats data:", error);
-      setStatsData(null); // Hata durumunda state'i sıfırla
+      setStatsData(null);
+      setReviewerStats([]);
     }
     setIsStatsLoading(false);
-  }, []); // Bu fonksiyonun filtre bağımlılığı YOKTUR
-  // --- DEĞİŞİKLİK 4 SONU ---
+  }, []); // Bağımlılık yok, çünkü REVIEWERS artık sabit
+  // === DEĞİŞİKLİK 5 SONU ===
 
 
   // --- Veri Yükleme Fonksiyonu (Filtreler için) ---
@@ -909,7 +963,6 @@ function App() {
         (payload) => {
           console.log('Veri değişikliği algılandı, grid ve statlar yenileniyor:', payload);
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
-             // Hem grid'i (mevcut sayfa) hem de istatistikleri (tüm data) yenile
              loadGridData(currentPage);
              loadStatsData(); 
           }
@@ -920,14 +973,14 @@ function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadGridData, currentPage, loadStatsData]); // loadStatsData eklendi
+  }, [loadGridData, currentPage, loadStatsData]); 
   
   
   // İlk yükleme
   useEffect(() => {
     loadGridData(1);
-    loadStatsData(); // İstatistikleri de ilk yüklemede çek
-  }, [loadGridData, loadStatsData]); // Bağımlılıklara eklendi
+    loadStatsData();
+  }, [loadGridData, loadStatsData]); 
 
   
   // Filtreler değiştiğinde sayfayı sıfırla
@@ -945,37 +998,12 @@ function App() {
   // Sayfa değiştiğinde veri yükle
   useEffect(() => {
     loadGridData(currentPage);
-  }, [currentPage, loadGridData]); // loadGridData'yı geri ekledim (useCallback kullandığımız için güvenli)
+  }, [currentPage, loadGridData]); 
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
   }, []);
   
-  const userSelector = (
-    <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-      <label htmlFor="user-selector" className="flex items-center gap-2 text-lg font-semibold text-gray-800 mb-2">
-        <UserCheck className="w-5 h-5 text-blue-600" />
-        İnceleyen Kişi
-      </label>
-      <select
-        id="user-selector"
-        value={currentUser}
-        onChange={(e) => setCurrentUser(e.target.value)}
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      >
-        <option value="" disabled>Lütfen adınızı seçin...</option>
-        {REVIEWERS.map(user => (
-          <option key={user} value={user}>{user}</option>
-        ))}
-      </select>
-      {!currentUser && (
-        <p className="text-sm text-red-600 mt-2">
-          Listeleme yapmak için bir kullanıcı seçmeniz gerekmektedir.
-        </p>
-      )}
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -989,13 +1017,10 @@ function App() {
           </p>
         </div>
 
-        {/* === DEĞİŞİKLİK 5: Veri Kartları Buraya Render Edilir === */}
+        {/* Veri Kartları */}
         <StatsCards stats={statsData} isLoading={isStatsLoading} />
-        {/* === DEĞİŞİKLİK 5 SONU === */}
 
-        {userSelector}
-
-        {/* --- Veri Yükleme Notu KALDIRILDI --- */}
+        {/* "İnceleyen Kişi" bloğu buradan kaldırıldı */}
 
         <DataTable
           data={data}
@@ -1005,7 +1030,14 @@ function App() {
           onPageChange={handlePageChange}
           allData={allData} 
           isLoading={isLoading}
+          
+          // === DEĞİŞİKLİK 6: Yeni proplar DataTable'a geçirildi ===
           currentUser={currentUser} 
+          setCurrentUser={setCurrentUser}
+          reviewerStats={reviewerStats}
+          isStatsLoading={isStatsLoading}
+          reviewers={REVIEWERS} // Bu hala filtre için kullanılıyor
+          // === DEĞİŞİKLİK 6 SONU ===
           
           // ... (Tüm filtre prop'ları) ...
           searchTerm={searchTerm} setSearchTerm={setSearchTerm}
@@ -1022,7 +1054,6 @@ function App() {
           filterApp={filterApp} setFilterApp={setFilterApp}
           filterTheme={filterTheme} setFilterTheme={setFilterTheme}
           filterInceleyen={filterInceleyen} setFilterInceleyen={setFilterInceleyen}
-          reviewers={REVIEWERS}
         />
       </div>
     </div>
