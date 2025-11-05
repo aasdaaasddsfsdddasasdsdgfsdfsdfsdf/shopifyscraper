@@ -289,6 +289,8 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       <div className="max-w-[1920px] mx-auto px-6 py-8">
         <div className="mb-8 flex flex-col items-center">
+          <div className="flex items-center gap-3 mb-8">
+            <Database className="w-10 h-10 text-blue-500" />
           </div>
 
           <div className="flex gap-3 bg-gray-800 p-2 rounded-xl border border-gray-700 mb-8">
