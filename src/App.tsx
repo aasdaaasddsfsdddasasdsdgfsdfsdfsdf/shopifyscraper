@@ -54,6 +54,9 @@ export interface ScrapedData {
   image3: string | null; 
   
   pazar: string | null;
+  
+  // ciro_numeric'i de ekleyelim (opsiyonel ama iyi bir pratik)
+  ciro_numeric?: number | null; 
 }
 
 // --- Veri Kartları için arayüz ---
@@ -137,43 +140,29 @@ export function exportToJSON(data: ScrapedData[]): void {
 // 3. YARDIMCI BİLEŞENLER (COMPONENTS)
 // =================================================================================
 
-// --- ListingDropdown Bileşeni (GÜNCELLENDİ: Optimistic Locking & UI) ---
+// --- ListingDropdown Bileşeni (Değişiklik yok) ---
 interface ListingDropdownProps {
   rowId: string;
   initialValue: boolean | null;
   currentUser: string;
   initialInceleyen: string | null; 
-  // <<< DEĞİŞİKLİK 1: Optimistic UI için callback eklendi
   onOptimisticUpdate: (rowId: string, newListedurum: boolean | null, newInceleyen: string | null) => void;
 }
 
-// <<< DEĞİŞİKLİK 1: onOptimisticUpdate prop'u eklendi
 const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceleyen, onOptimisticUpdate }: ListingDropdownProps) => {
   const [currentValue, setCurrentValue] = useState(initialValue);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Supabase Realtime'dan (veya optimistic update'ten) gelen değişiklikleri yakala
   useEffect(() => { 
     setCurrentValue(initialValue); 
   }, [initialValue]);
   
-  // initialInceleyen değişikliğini de izle (gerekli, çünkü optimistic update bunu da etkiler)
-  // Bu useEffect'i kaldırmak UI'ın anlık güncellemesini sağlar, 
-  // çünkü artık `data` state'i anlık güncelleniyor.
-  // useEffect(() => { 
-  //   setOptimisticInceleyen(initialInceleyen); 
-  // }, [initialInceleyen]);
-  // *Düzeltme*: Sadece `currentValue` (listedurum) için state yeterli. 
-  // `inceleyen` state'i burada tutulmamalı, çünkü `DataTable` zaten
-  // `data` prop'undan anlık olarak güncellenmiş `row.inceleyen`'i alacak.
-
   const getValueAsString = (val: boolean | null): string => {
     if (val === true) return "true";
     if (val === false) return "false";
     return "unset"; 
   };
   
-  // <<< DEĞİŞİKLİK 2: handleChange fonksiyonu Optimistic UI callback'ini çağıracak şekilde güncellendi
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (!currentUser) { 
       alert('Lütfen işlem yapmadan önce "İnceleyen Kişi" seçimi yapın.'); 
@@ -198,57 +187,38 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceley
     const isUnassigning = newValue === null; // Kullanıcı "Seçim Yapın" mı dedi?
     const newInceleyen = isUnassigning ? null : currentUser;
 
-    // <<< DEĞİŞİKLİK 3: Optimistic UI için parent'ı (App state) bilgilendir >>>
-    // Bu, `inceleyen` sütunu da dahil olmak üzere tüm satırın UI'da anlık güncellenmesini sağlar.
     onOptimisticUpdate(rowId, newValue, newInceleyen);
 
-    // Veritabanı güncelleme objesi
     const updateObject = { 
       listedurum: newValue, 
       inceleyen: newInceleyen
     };
 
-    // Başlangıç query'si
     let updateQuery = supabase
       .from('scraped_data')
       .update(updateObject, { count: 'exact' }) // Etkilenen satır sayısını iste
       .eq('id', rowId);
 
-    // --- OPTIMISTIC LOCKING KOŞULU ---
     if (initialInceleyen === null) {
-      // Eğer biz bu kaydı 'boşta' (null) gördüysek, sadece hala 'boşta' ise güncelle.
       updateQuery = updateQuery.is('inceleyen', null);
     } else {
-      // Eğer biz bu kaydı 'dolu' (örn: 'Mert') gördüysek, sadece hala 'Mert'e aitse güncelle.
       updateQuery = updateQuery.eq('inceleyen', initialInceleyen);
     }
     
-    // Query'yi çalıştır ve 'count' (etkilenen satır sayısı) bilgisini al
     const { error, count } = await updateQuery;
       
     if (error) { 
       console.error('Update error:', error); 
-      // <<< DEĞİŞİKLİK 4: Hata durumunda Optimistic UI'ı geri al >>>
       onOptimisticUpdate(rowId, initialValue, initialInceleyen);
       setCurrentValue(initialValue); // Dropdown'ı geri al
       alert(`Hata: ${error.message}`); 
     } else if (count === 0 && !error) {
-      // Hata yok AMA count = 0 ise, optimistic lock başarısız oldu.
       console.warn('Update failed: Optimistic lock violation.');
-      
-      // <<< DEĞİŞİKLİK 5: Kilitlenme durumunda Optimistic UI'ı geri al >>>
-      // Not: Realtime zaten sunucudaki güncel veriyi getireceği için 
-      // buradaki geri alma işlemi kullanıcıya anlık bir "flicker" yaşatabilir,
-      // ama en doğru (consistent) davranıştır.
-      // Alternatif olarak, sadece alert verip Realtime'ın güncellemesini beklenebilir.
-      // Şimdilik en güvenli yolu (geri almayı) seçelim.
       onOptimisticUpdate(rowId, initialValue, initialInceleyen);
       setCurrentValue(initialValue); // Dropdown'ı geri al
       
       alert('Hata: Bu kaydın durumu siz işlem yapmadan önce başka bir kullanıcı tarafından değiştirildi. Sayfa güncelleniyor.');
     }
-    // Başarılıysa (count > 0), hiçbir şey yapma, Realtime değişikliği yayacak 
-    // (veya bizim optimistic UI'ımız zaten doğru durumu gösteriyor).
     setIsLoading(false);
   };
 
@@ -363,7 +333,7 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
 );
 
 
-// --- DataTable Bileşeni (Varsayılan Sütunlar ve Ekrana Sığdırma Güncellendi) ---
+// --- DataTable Bileşeni (Değişiklik yok) ---
 const ALL_COLUMNS = [
   { key: 'date', label: 'Date', defaultVisible: false, sortable: true },
   { key: 'domain', label: 'Domain', defaultVisible: true, sortable: true },
@@ -398,10 +368,8 @@ interface DataTableProps {
   reviewerStats: ReviewerStat[];
   isStatsLoading: boolean; 
   
-  // <<< DEĞİŞİKLİK 6: Optimistic UI callback'i eklendi
   onOptimisticUpdate: (rowId: string, newListedurum: boolean | null, newInceleyen: string | null) => void;
 
-  // --- YENİ: Sıralama propları eklendi ---
   sortColumn: string | null;
   sortDirection: 'asc' | 'desc';
   onSortChange: (columnKey: string) => void;
@@ -448,9 +416,7 @@ const DataTable = memo(({
   setCurrentUser,
   reviewerStats,
   isStatsLoading,
-  // <<< DEĞİŞİKLİK 7: onOptimisticUpdate prop'u eklendi
   onOptimisticUpdate, 
-  // --- YENİ: Sıralama propları ---
   sortColumn,
   sortDirection,
   onSortChange,
@@ -463,7 +429,6 @@ const DataTable = memo(({
   const [showColumnManager, setShowColumnManager] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
-  // --- YENİ: Sayfalandırma input state'i ---
   const [pageInput, setPageInput] = useState(String(currentPage));
 
   useEffect(() => {
@@ -503,7 +468,6 @@ const DataTable = memo(({
          goToPage(pageNum); // Sayfaya git (sınırlar içinde)
      }
   };
-  // --- BİTTİ: Sayfalandırma input ---
 
 
   const [localSearchTerm, setLocalSearchTerm] = useState(filterProps.searchTerm);
@@ -581,10 +545,8 @@ const DataTable = memo(({
     );
   };
 
-  // --- YENİ: Sıralama ikon helper'ı ---
   const getSortIcon = (columnKey: string) => {
     if (sortColumn !== columnKey) {
-      // Aktif olmayan sütun
       return <ChevronDown className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />;
     }
     if (sortDirection === 'asc') {
@@ -846,12 +808,10 @@ const DataTable = memo(({
                       </td>
                     )}
                     
-                    {/* <<< BU SÜTUN ARTIK ANINDA GÜNCELLENECEK >>> */}
                     {visibleColumns.includes('inceleyen') && <td className={`${tdCell} whitespace-nowrap`}>{row.inceleyen || '-'}</td>}
                     
                     {visibleColumns.includes('listedurum') && (
                       <td className={`${tdCell} text-center`}>
-                        {/* <<< DEĞİŞİKLİK 8: onOptimisticUpdate prop'u iletildi >>> */}
                         <ListingDropdown 
                           rowId={row.id} 
                           initialValue={row.listedurum} 
@@ -869,7 +829,6 @@ const DataTable = memo(({
             </table>
           </div>
           
-          {/* --- YENİ: Gelişmiş Sayfalandırma --- */}
           {totalPages > 1 && (
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
               <div className="text-sm text-gray-600">
@@ -986,24 +945,21 @@ function App() {
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
-  // İstatistik Yükleme Fonksiyonu Güncellendi (İnceleyen Sayıları Eklendi)
+  // İstatistik Yükleme Fonksiyonu (Değişiklik yok)
   const loadStatsData = useCallback(async () => {
     setIsStatsLoading(true);
     try {
-      // Pazar Yeri İstatistikleri
-      // listedurum: null olmayanlar sayılır (Yani 'Evet' veya 'Hayır' olarak işaretlenenler)
       const toplamQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).not('listedurum', 'is', null);
       const trQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).not('listedurum', 'is', null).eq('"Currency"', 'TRY');
       const usdQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).not('listedurum', 'is', null).eq('"Currency"', 'USD');
       const euQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).not('listedurum', 'is', null).eq('"Currency"', 'EUR');
 
-      // İnceleyen Kişi Sayıları (Sadece 'listedurum' null olmayanlar)
       const reviewerCountPromises = REVIEWERS.map(name =>
         supabase
           .from('scraped_data')
           .select('id', { count: 'exact', head: true })
           .eq('inceleyen', name)
-          .not('listedurum', 'is', null) // Sadece 'Evet' veya 'Hayır' dediklerini say
+          .not('listedurum', 'is', null) 
       );
       
       const [toplamRes, trRes, usdRes, euRes, ...reviewerResults] = await Promise.all([
@@ -1014,7 +970,6 @@ function App() {
         ...reviewerCountPromises
       ]);
 
-      // Pazar Yeri State'ini ayarla
       setStatsData({
         toplam: toplamRes.count || 0,
         tr: trRes.count || 0,
@@ -1022,7 +977,6 @@ function App() {
         eu: euRes.count || 0,
       });
       
-      // İnceleyen Kişi State'ini ayarla
       const newReviewerStats = reviewerResults.map((res, index) => ({
         name: REVIEWERS[index],
         count: res.count || 0,
@@ -1038,7 +992,7 @@ function App() {
   }, []); 
 
 
-  // --- Veri Yükleme Fonksiyonu (Filtreler ve SIRALAMA için) ---
+  // --- Veri Yükleme Fonksiyonu (CİRO SIRALAMASI GÜNCELLENDİ) ---
   const loadGridData = useCallback(async (page: number) => {
     setIsLoading(true);
     const offset = (page - 1) * ITEMS_PER_PAGE;
@@ -1058,8 +1012,6 @@ function App() {
       if (filterListedurum === 'true') {
         pageQuery = pageQuery.eq('listedurum', true);
       } else {
-        // 'Hayır' (false) veya 'Seçim Yapın' (null) olanları getirir
-        // <<< GÜNCELLEME: Kullanıcı 'Hayır' seçtiyse, 'false' ve 'null' olanları getir.
         pageQuery = pageQuery.or('listedurum.is.false,listedurum.is.null');
       }
     }
@@ -1087,18 +1039,28 @@ function App() {
         primaryAscending = false;
     }
     
-    // Ana sıralamayı uygula
-    pageQuery = pageQuery.order(primarySortColumn, { ascending: primaryAscending });
+    // <<< GÜNCELLEME: 'ciro' ise 'ciro_numeric' kullan >>>
+    let dbSortColumn = primarySortColumn;
+    if (primarySortColumn === 'ciro') {
+        dbSortColumn = 'ciro_numeric';
+    }
+    // <<< BİTTİ: GÜNCELLEME >>>
     
-    // Tutarlılık için ikincil bir sıralama ekle (eğer ana sıralama domain değilse)
+    // Ana sıralamayı (dbSortColumn kullanarak) uygula
+    // 'nullsFirst: false' (veya nullsLast: true) eklemek iyi bir pratiktir, 
+    // böylece boş cirolar en sonda görünür.
+    pageQuery = pageQuery.order(dbSortColumn, { 
+      ascending: primaryAscending,
+      nullsFirst: false // NULL değerleri en sona atar
+    });
+    
+    // Tutarlılık için ikincil bir sıralama ekle
     if (primarySortColumn !== 'domain') {
         pageQuery = pageQuery.order('domain', { ascending: true });
     }
     // --- BİTTİ: Dinamik Sıralama ---
 
     const { data: pageData, error: dataError, count } = await pageQuery
-      // .order('date', { ascending: false }) // Eski sıralama kaldırıldı
-      // .order('domain', { ascending: true }) // Eski sıralama kaldırıldı
       .range(offset, offset + ITEMS_PER_PAGE - 1);
 
     if (dataError) {
@@ -1143,15 +1105,16 @@ function App() {
       allDataQuery = allDataQuery.or(searchConditions);
     }
 
-    // `allDataQuery` için de sıralamayı uygula
-    allDataQuery = allDataQuery.order(primarySortColumn, { ascending: primaryAscending });
+    // `allDataQuery` için de sıralamayı uygula (dbSortColumn zaten 'ciro_numeric' olarak düzeltildi)
+    allDataQuery = allDataQuery.order(dbSortColumn, { 
+      ascending: primaryAscending,
+      nullsFirst: false 
+    });
     if (primarySortColumn !== 'domain') {
         allDataQuery = allDataQuery.order('domain', { ascending: true });
     }
 
-    const { data: fullData } = await allDataQuery
-      // .order('date', { ascending: false }) // Eski sıralama kaldırıldı
-      // .order('domain', { ascending: true }); // Eski sıralama kaldırıldı
+    const { data: fullData } = await allDataQuery;
     
     setAllData(fullData as ScrapedData[] || []);
     setIsLoading(false);
@@ -1160,11 +1123,11 @@ function App() {
     searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, 
     filterTitle, filterListedurum, filterNiche, filterCiro, filterTrafik, 
     filterProductCount, filterApp, filterTheme, filterInceleyen,
-    sortColumn, sortDirection // <<< YENİ: Bağımlılıklara eklendi
+    sortColumn, sortDirection // Bağımlılıklara eklendi
   ]); 
   
   
-  // Veritabanı Değişikliklerini Dinle (Realtime)
+  // Veritabanı Değişikliklerini Dinle (Realtime) (Değişiklik yok)
   useEffect(() => {
     const channel = supabase
       .channel('scraped-data-changes')
@@ -1174,11 +1137,6 @@ function App() {
         (payload) => {
           console.log('Veri değişikliği algılandı, grid ve statlar yenileniyor:', payload);
           
-          // <<< DEĞİŞİKLİK 9: Optimistic UI'ın üzerine yazmaması için kontrol >>>
-          // Eğer değişiklik 'UPDATE' ise, payload.new'i kullanarak 
-          // `data` state'ini manuel güncelleyebiliriz.
-          // Bu, `loadGridData`'nın optimistic state'in üzerine yazmasını engeller.
-          
           if (payload.eventType === 'UPDATE') {
             const updatedRow = payload.new as ScrapedData;
             setData(currentData => 
@@ -1186,10 +1144,8 @@ function App() {
                 row.id === updatedRow.id ? updatedRow : row
               )
             );
-            // Sadece istatistikleri yeniden yükle, grid'i değil.
             loadStatsData();
           } else if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
-             // Yeni kayıt veya silme varsa tam yükleme yap
              loadGridData(currentPage);
              loadStatsData(); 
           }
@@ -1200,66 +1156,68 @@ function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadGridData, currentPage, loadStatsData]); // Bağımlılıklara loadStatsData eklendi
+  }, [loadGridData, currentPage, loadStatsData]); 
   
   
-  // İlk yükleme
+  // İlk yükleme (Değişiklik yok)
   useEffect(() => {
     loadGridData(1);
     loadStatsData();
-  }, [loadGridData, loadStatsData]); // loadGridData'ya bağımlı
+  }, [loadGridData, loadStatsData]); 
 
   
-  // Filtreler veya Sıralama değiştiğinde sayfayı sıfırla
+  // Filtreler veya Sıralama değiştiğinde sayfayı sıfırla (Değişiklik yok)
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
     loadGridData(1); 
-    loadStatsData(); // Filtreler değiştiğinde istatistikler de güncellenmeli.
+    loadStatsData(); 
     
   }, [
     searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, 
     filterTitle, filterListedurum, filterNiche, filterCiro, filterTrafik, 
     filterProductCount, filterApp, filterTheme, filterInceleyen,
-    sortColumn, sortDirection // <<< YENİ: Sıralama eklendi
+    sortColumn, sortDirection
   ]); 
 
   
-  // Sayfa değiştiğinde veri yükle
+  // Sayfa değiştiğinde veri yükle (Değişiklik yok)
   useEffect(() => {
     loadGridData(currentPage);
-  }, [currentPage, loadGridData]); // loadGridData bağımlılığı eklendi (önceki kodda eksikti, ama olmalı)
+  }, [currentPage, loadGridData]); 
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
   }, []);
   
-  // <<< DEĞİŞİKLİK 10: Optimistic UI için state güncelleme fonksiyonu >>>
+  // Optimistic UI (Değişiklik yok)
   const handleOptimisticUpdate = useCallback((rowId: string, newListedurum: boolean | null, newInceleyen: string | null) => {
     setData(currentData => 
       currentData.map(row => 
         row.id === rowId 
-          // Sadece 'listedurum' ve 'inceleyen'i anlık güncelle
           ? { ...row, listedurum: newListedurum, inceleyen: newInceleyen }
           : row
       )
     );
-  }, []); // Boş bağımlılık dizisi, bu fonksiyonun referansının değişmemesini sağlar.
+  }, []); 
 
-  // --- YENİ: Sıralama değiştirme handler'ı ---
+  // --- Sıralama değiştirme handler'ı (CİRO İÇİN GÜNCELLENDİ) ---
   const handleSortChange = useCallback((columnKey: string) => {
     // Tıklanan sütun zaten aktif sütunsa, yönü değiştir
     if (sortColumn === columnKey) {
       setSortDirection(prevDir => prevDir === 'asc' ? 'desc' : 'asc');
     } else {
-      // Değilse, yeni sütunu ayarla ve varsayılan olarak 'asc' yap
-      // (Tarih, ciro gibi sütunlar için 'desc' daha mantıklı olabilir ama şimdilik 'asc' basit)
+      // Değilse, yeni sütunu ayarla
       setSortColumn(columnKey);
-      setSortDirection('asc');
+      
+      // <<< GÜNCELLEME: Sayısal/Tarih sütunları için varsayılan 'desc' (büyükten küçüğe) olsun >>>
+      if (['ciro', 'trafik', 'product_count', 'date'].includes(columnKey)) {
+        setSortDirection('desc');
+      } else {
+        setSortDirection('asc'); // Diğerleri (alfabetik) 'asc' başlasın
+      }
     }
-    // Sıralama değiştiğinde 1. sayfaya dön (yukarıdaki useEffect halledecek)
-    // setCurrentPage(1); // Bu useEffect tarafından tetikleniyor zaten
   }, [sortColumn]); // sortColumn bağımlılığı
 
 
@@ -1277,7 +1235,6 @@ function App() {
         {/* Veri Kartları */}
         <StatsCards stats={statsData} isLoading={isStatsLoading} />
 
-        {/* <<< DEĞİŞİKLİK 11: handleOptimisticUpdate ve Sıralama prop'ları DataTable'a iletildi >>> */}
         <DataTable
           data={data}
           currentPage={currentPage}
@@ -1295,7 +1252,6 @@ function App() {
           
           onOptimisticUpdate={handleOptimisticUpdate}
           
-          // --- YENİ: Sıralama propları ---
           sortColumn={sortColumn}
           sortDirection={sortDirection}
           onSortChange={handleSortChange}
