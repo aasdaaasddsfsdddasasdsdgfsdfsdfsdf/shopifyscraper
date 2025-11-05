@@ -279,10 +279,11 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
 <StatsCard
   title="TR Pazarı (TRY)"
   value={stats?.tr ?? 0}
-  icon="₺"
+  icon={<span className="text-lg font-bold">₺</span>}
   color="bg-red-500"
   isLoading={isLoading}
 />
+
 
     <StatsCard
       title="USD Pazarı"
