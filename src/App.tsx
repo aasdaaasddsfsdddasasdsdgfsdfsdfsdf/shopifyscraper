@@ -19,28 +19,29 @@ export interface ScrapedData {
   id: string;
   date: string;
   domain: string;
-  "Currency": string | null; // Şemaya göre büyük harf ve tırnaklı
+  "Currency": string | null; 
   language: string | null;
   created_at: string;
   
-  listedurum: boolean;
+  // === DEĞİŞİKLİK 1: listedurum artık 'null' (boş) olabilir ===
+  listedurum: boolean | null; 
   inceleyen: string | null;
   
   ciro: string | null;
   adlink: string | null;
   niche: string | null;
-  product_count: string | null; // Şemada 'text' olarak belirtilmiş
+  product_count: string | null; 
   trafik: string | null;
   app: string | null;
   theme: string | null;
 
   // --- YENİ ŞEMA SÜTUNLARI ---
-  "Durum": string | null; // Şemaya göre büyük harf ve tırnaklı
-  title: string | null; // Product başlığı
+  "Durum": string | null; 
+  title: string | null; 
   product_error: string | null;
-  image1: string | null; // Görsel 1
-  image2: string | null; // Görsel 2
-  image3: string | null; // Görsel 3
+  image1: string | null; 
+  image2: string | null; 
+  image3: string | null; 
   
   pazar: string | null;
 }
@@ -70,7 +71,8 @@ function downloadFile(content: string, filename: string, mimeType: string): void
   URL.revokeObjectURL(url);
 }
 
-// --- GÜNCELLENDİ: Yeni düz yapıdan veri okuyor ---
+// (Export fonksiyonları, 'listedurum' için 'null'u da yönetebilir, ancak şu an için bir değişiklik gerekmiyor)
+// ... exportToCSV ve exportToJSON fonksiyonları (değişiklik yok) ...
 export function exportToCSV(data: ScrapedData[]): void {
   if (data.length === 0) return;
 
@@ -92,15 +94,15 @@ export function exportToCSV(data: ScrapedData[]): void {
       escapeCSV(row.app),
       escapeCSV(row.theme),
       escapeCSV(row.adlink),
-      escapeCSV(row["Currency"]), // Güncellendi
+      escapeCSV(row["Currency"]), 
       escapeCSV(row.language),
-      escapeCSV(row["Durum"]),    // Güncellendi
-      escapeCSV(row.title),      // Güncellendi
-      escapeCSV(row.image1),     // Güncellendi
-      escapeCSV(row.image2),     // Güncellendi
-      escapeCSV(row.image3),     // Güncellendi
+      escapeCSV(row["Durum"]),    
+      escapeCSV(row.title),      
+      escapeCSV(row.image1),     
+      escapeCSV(row.image2),     
+      escapeCSV(row.image3),     
       escapeCSV(row.product_error),
-      String(row.listedurum),
+      String(row.listedurum), // "true", "false", veya "null"
       escapeCSV(row.inceleyen),
       escapeCSV(row.pazar),
     ];
@@ -111,7 +113,6 @@ export function exportToCSV(data: ScrapedData[]): void {
   downloadFile(csvContent, 'scraped-data.csv', 'text/csv');
 }
 
-// --- GÜNCELLENDİ: Yeni düz yapıdan veri okuyor ---
 export function exportToJSON(data: ScrapedData[]): void {
   const jsonData = data.map(row => ({
     date: row.date,
@@ -123,15 +124,15 @@ export function exportToJSON(data: ScrapedData[]): void {
     app: row.app,
     theme: row.theme,
     adlink: row.adlink,
-    Currency: row["Currency"], // Güncellendi
+    Currency: row["Currency"], 
     language: row.language,
     listedurum: row.listedurum,
     inceleyen: row.inceleyen,
-    status: row["Durum"],      // Güncellendi
-    title: row.title,          // Güncellendi
-    image1: row.image1,        // Güncellendi
-    image2: row.image2,        // Güncellendi
-    image3: row.image3,        // Güncellendi
+    status: row["Durum"],      
+    title: row.title,          
+    image1: row.image1,        
+    image2: row.image2,        
+    image3: row.image3,        
     product_error: row.product_error,
     pazar: row.pazar,
   }));
@@ -140,15 +141,14 @@ export function exportToJSON(data: ScrapedData[]): void {
   downloadFile(jsonContent, 'scraped-data.json', 'application/json');
 }
 
-
 // =================================================================================
 // 4. BİLEŞENLER (COMPONENTS)
 // =================================================================================
 
-// --- DEĞİŞİKLİK 1: Checkbox yerine Dropdown Bileşeni ---
+// --- DEĞİŞİKLİK 2: Dropdown Bileşeni 'null' (boş) durumu içerecek şekilde güncellendi ---
 interface ListingDropdownProps {
   rowId: string;
-  initialValue: boolean;
+  initialValue: boolean | null; // Artık null olabilir
   currentUser: string;
 }
 const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropdownProps) => {
@@ -159,54 +159,74 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropd
     setCurrentValue(initialValue); 
   }, [initialValue]);
 
+  // boolean (true/false) veya null değeri string ("true", "false", "unset") değere çevirir
+  const getValueAsString = (val: boolean | null): string => {
+    if (val === true) return "true";
+    if (val === false) return "false";
+    return "unset"; // "unset" string'i 'null' (boş) durumu temsil eder
+  };
+  
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (!currentUser) { 
       alert('Lütfen işlem yapmadan önce "İnceleyen Kişi" seçimi yapın.'); 
-      // Seçimi eski haline getir
-      e.target.value = String(currentValue);
+      e.target.value = getValueAsString(currentValue); // Seçimi eski haline getir
       return; 
     }
     
-    const newValueString = e.target.value;
-    // "true" -> true, "false" -> false
-    const newValueBoolean = newValueString === 'true'; 
+    const newValueString = e.target.value; // "true", "false", veya "unset"
+    
+    let newValue: boolean | null;
+    if (newValueString === "true") {
+      newValue = true;
+    } else if (newValueString === "false") {
+      newValue = false;
+    } else {
+      newValue = null; // "unset" (Seçim Yapın) seçeneği DB'ye 'null' olarak gider
+    }
 
     setIsLoading(true);
-    setCurrentValue(newValueBoolean); // Optimistic update
+    setCurrentValue(newValue); // Optimistic update
 
     const { error } = await supabase
       .from('scraped_data')
-      .update({ listedurum: newValueBoolean, inceleyen: currentUser })
+      .update({ 
+        listedurum: newValue, 
+        // "Evet" veya "Hayır" seçilirse inceleyeni ata, "Seçim Yapın" (null) seçilirse inceleyeni kaldır
+        inceleyen: newValue === null ? null : currentUser 
+      })
       .eq('id', rowId);
       
     if (error) { 
       console.error('Update error:', error); 
-      setCurrentValue(!newValueBoolean); // Revert on error
+      setCurrentValue(initialValue); // Hata durumunda eski değere dön
       alert(`Hata: ${error.message}`); 
     }
     setIsLoading(false);
   };
 
-  // boolean (true) değerini string ("true") değere çeviririz
-  const selectValue = String(currentValue);
+  const selectValue = getValueAsString(currentValue);
 
   return (
     <div className="flex items-center justify-center">
       {isLoading ? (<Loader2 className="w-4 h-4 animate-spin text-blue-500" />) : (
         <select
-          value={selectValue} // "true" veya "false"
+          value={selectValue} // "true", "false", veya "unset"
           onChange={handleChange}
           disabled={!currentUser}
-          className={`w-24 px-2 py-1 border border-gray-300 rounded-md text-sm font-medium ${
+          className={`w-28 px-2 py-1 border rounded-md text-sm font-medium ${
             !currentUser ? 'cursor-not-allowed opacity-50 bg-gray-100' : 'cursor-pointer'
           } ${
             // Duruma göre renklendirme
             selectValue === 'true' 
               ? 'bg-green-100 text-green-800 border-green-200' 
-              : 'bg-red-100 text-red-800 border-red-200'
+            : selectValue === 'false'
+              ? 'bg-red-100 text-red-800 border-red-200'
+              : 'bg-gray-100 text-gray-700 border-gray-200' // 'unset' (boş) için nötr stil
           }`}
           title={!currentUser ? 'İşlem yapmak için inceleyen kişi seçmelisiniz' : 'Listeleme durumunu değiştir'}
         >
+          {/* "unset" değeri 'null' (boş) durumu temsil eder */}
+          <option value="unset">Seçim Yapın</option> 
           <option value="true">Evet</option>
           <option value="false">Hayır</option>
         </select>
@@ -214,7 +234,7 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropd
     </div>
   );
 });
-// --- DEĞİŞİKLİK 1 SONU ---
+// --- DEĞİŞİKLİK 2 SONU ---
 
 
 // --- ImageModal Bileşeni (Değişiklik yok) ---
@@ -244,11 +264,11 @@ const ALL_COLUMNS = [
   { key: 'app', label: 'App', defaultVisible: true },
   { key: 'theme', label: 'Theme', defaultVisible: false },
   { key: 'adlink', label: 'Ad Link', defaultVisible: true },
-  { key: 'Currency', label: 'Currency', defaultVisible: false }, // Güncellendi
+  { key: 'Currency', label: 'Currency', defaultVisible: false }, 
   { key: 'language', label: 'Language', defaultVisible: false },
-  { key: 'Durum', label: 'Status', defaultVisible: true },    // Güncellendi
-  { key: 'title', label: 'Product Title', defaultVisible: true }, // Güncellendi
-  { key: 'images', label: 'Products', defaultVisible: true }, // Bu sanal bir key, görsel sütununu temsil eder
+  { key: 'Durum', label: 'Status', defaultVisible: true },    
+  { key: 'title', label: 'Product Title', defaultVisible: true }, 
+  { key: 'images', label: 'Products', defaultVisible: true }, 
   { key: 'inceleyen', label: 'İnceleyen', defaultVisible: true },
   { key: 'listedurum', label: 'Listelensin mi?', defaultVisible: true },
   { key: 'pazar', label: 'Pazar', defaultVisible: false },
@@ -260,7 +280,7 @@ interface DataTableProps {
   totalPages: number;
   totalRecords: number;
   onPageChange: (page: number) => void;
-  allData: ScrapedData[]; // Bu prop artık kullanılmıyor (export kaldırıldığı için)
+  allData: ScrapedData[]; 
   isLoading: boolean;
   currentUser: string; 
   reviewers: string[];
@@ -270,7 +290,7 @@ interface DataTableProps {
   setSearchTerm: (value: string) => void;
   filterDomain: string;
   setFilterDomain: (value: string) => void;
-  filterStatus: string; // 'all' | 'open' | 'closed' | string;
+  filterStatus: string; 
   setFilterStatus: (value: string) => void;
   filterCurrency: string;
   setFilterCurrency: (value: string) => void;
@@ -545,9 +565,9 @@ const DataTable = memo(({
                   {visibleColumns.includes('adlink') && <th className={thCell}>Ad Link</th>}
                   {visibleColumns.includes('Currency') && <th className={thCell}>Currency</th>}
                   {visibleColumns.includes('language') && <th className={thCell}>Language</th>}
-                  {visibleColumns.includes('Durum') && <th className={thCell}>Status</th>}       {/* Güncellendi */}
-                  {visibleColumns.includes('title') && <th className={thCell}>Product Title</th>}  {/* Güncellendi */}
-                  {visibleColumns.includes('images') && <th className={thCell}>Products</th>}     {/* Güncellendi (sanal) */}
+                  {visibleColumns.includes('Durum') && <th className={thCell}>Status</th>}       
+                  {visibleColumns.includes('title') && <th className={thCell}>Product Title</th>}  
+                  {visibleColumns.includes('images') && <th className={thCell}>Products</th>}     
                   {visibleColumns.includes('inceleyen') && <th className={thCell}>İnceleyen</th>}
                   {visibleColumns.includes('listedurum') && <th className={`${thCell} text-center`}>Listelensin mi?</th>}
                   {visibleColumns.includes('pazar') && <th className={thCell}>Pazar</th>}
@@ -583,7 +603,6 @@ const DataTable = memo(({
                     {visibleColumns.includes('Currency') && <td className={`${tdCell} whitespace-nowrap`}>{row["Currency"] || '-'}</td>}
                     {visibleColumns.includes('language') && <td className={`${tdCell} whitespace-nowrap`}>{row.language || '-'}</td>}
                     
-                    {/* --- GÜNCELLENDİ: Yeni düz yapıdan okuma --- */}
                     {visibleColumns.includes('Durum') && (
                       <td className={`${tdCell} whitespace-nowrap`}>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -596,27 +615,24 @@ const DataTable = memo(({
                       </td>
                     )}
                     
-                    {/* === DEĞİŞİKLİK 2: Title Genişliği Sınırlandı === */}
+                    {/* === Title Genişliği Sınırlı === */}
                     {visibleColumns.includes('title') && (
                       <td className={`${tdCell} max-w-64 truncate`} title={row.title || undefined}>
                         {row.title || '-'}
                       </td>
                     )}
-                    {/* === DEĞİŞİKLİK 2 SONU === */}
+                    {/* === Title SONU === */}
                     
                     {visibleColumns.includes('images') && (
                       <td className={tdCell}>
                         {(() => {
-                          // 1. ADIM: image1, image2, image3 sütunları bir diziye toplanır
                           const images = [row.image1, row.image2, row.image3].filter(Boolean) as string[];
-                          
-                          // 2. ADIM: "Durum" "open" ise ve görsel varsa, img etiketleri oluşturulur
                           return String(row["Durum"]).toLowerCase() === 'open' && images.length > 0 ? (
                             <div className="flex gap-2">
                               {images.map((img, idx) => (
                                 <img
                                   key={idx} 
-                                  src={img} // GÖRSEL BURADA KULLANILIYOR
+                                  src={img} 
                                   alt={`Product ${idx + 1}`}
                                   className="w-12 h-12 rounded object-cover border border-gray-200 hover:border-blue-500 transition-colors cursor-pointer"
                                   onClick={() => setSelectedImage(img)}
@@ -628,11 +644,10 @@ const DataTable = memo(({
                         })()}
                       </td>
                     )}
-                    {/* --- GÜNCELLEME SONU --- */}
                     
                     {visibleColumns.includes('inceleyen') && <td className={`${tdCell} whitespace-nowrap`}>{row.inceleyen || '-'}</td>}
                     
-                    {/* --- DEĞİŞİKLİK 3: Checkbox yerine Dropdown kullanılır --- */}
+                    {/* --- Grid İçi Dropdown Kullanılır --- */}
                     {visibleColumns.includes('listedurum') && (
                       <td className={`${tdCell} text-center`}>
                         <ListingDropdown 
@@ -642,7 +657,6 @@ const DataTable = memo(({
                         />
                       </td>
                     )}
-                    {/* --- DEĞİŞİKLİK 3 SONU --- */}
                     
                     {visibleColumns.includes('pazar') && <td className={`${tdCell} whitespace-nowrap`}>{row.pazar || '-'}</td>}
                   </tr>
@@ -687,7 +701,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState('');
   
   const [data, setData] = useState<ScrapedData[]>([]);
-  const [allData, setAllData] = useState<ScrapedData[]>([]); // 'allData' 'loadGridData' içinde hala kullanılıyor
+  const [allData, setAllData] = useState<ScrapedData[]>([]); 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -695,7 +709,7 @@ function App() {
   // --- Filtre State'leri (Değişiklik yok) ---
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDomain, setFilterDomain] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all'); // Güncellendi
+  const [filterStatus, setFilterStatus] = useState<string>('all'); 
   const [filterCurrency, setFilterCurrency] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterTitle, setFilterTitle] = useState('');
@@ -721,18 +735,26 @@ function App() {
 
     // --- GÜNCELLENDİ: Filtreler yeni sütun adlarına göre ---
     if (filterDomain) pageQuery = pageQuery.ilike('domain', `%${filterDomain}%`);
-    if (filterStatus !== 'all') pageQuery = pageQuery.eq('"Durum"', filterStatus); // Güncellendi
-    if (filterCurrency) pageQuery = pageQuery.ilike('"Currency"', `%${filterCurrency}%`); // Güncellendi
+    if (filterStatus !== 'all') pageQuery = pageQuery.eq('"Durum"', filterStatus); 
+    if (filterCurrency) pageQuery = pageQuery.ilike('"Currency"', `%${filterCurrency}%`); 
     if (filterLanguage) pageQuery = pageQuery.ilike('language', `%${filterLanguage}%`);
-    if (filterTitle) pageQuery = pageQuery.ilike('title', `%${filterTitle}%`); // Güncellendi
+    if (filterTitle) pageQuery = pageQuery.ilike('title', `%${filterTitle}%`); 
+    
+    // === DEĞİŞİKLİK 3: listedurum filtresi artık null'ı da aramalı mı? ===
+    // 'all' tümünü getirir (null, true, false)
+    // 'true' sadece true olanları
+    // 'false' sadece false olanları
+    // NOT: Kullanıcı "boş" olanları filtrelemek isterse buraya 'null' seçeneği eklenebilir,
+    // ancak şimdilik filtre (Tüm/Evet/Hayır) istendiği gibi bırakıldı.
     if (filterListedurum !== 'all') {
       pageQuery = pageQuery.eq('listedurum', filterListedurum === 'true');
     }
+    // === DEĞİŞİKLİK 3 SONU ===
+    
     if (filterNiche) pageQuery = pageQuery.ilike('niche', `%${filterNiche}%`);
     if (filterCiro) pageQuery = pageQuery.ilike('ciro', `%${filterCiro}%`);
     if (filterTrafik) pageQuery = pageQuery.ilike('trafik', `%${filterTrafik}%`);
     if (filterProductCount !== '') {
-      // product_count şemada text, ancak Supabase gte'yi sayısal stringler için yönetebilmeli
       pageQuery = pageQuery.gte('product_count', filterProductCount);
     }
     if (filterApp) pageQuery = pageQuery.ilike('app', `%${filterApp}%`);
@@ -740,7 +762,6 @@ function App() {
     if (filterInceleyen !== 'all') pageQuery = pageQuery.eq('inceleyen', filterInceleyen);
 
     if (searchTerm) {
-      // Güncellendi: 'title' ve '"Currency"' eklendi
       const searchConditions = `domain.ilike.%${searchTerm}%,title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,"Currency".ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`;
       pageQuery = pageQuery.or(searchConditions);
     }
@@ -760,17 +781,15 @@ function App() {
     }
 
     // --- Dışa Aktarım Sorgusu (GÜNCELLENDİ) ---
-    // (Export butonları kaldırılsa bile, allData'yı (veya export işlevselliğini)
-    // gelecekte kullanmak üzere kodda bırakmak iyi bir pratiktir)
     let allDataQuery = supabase
       .from('scraped_data')
       .select('*');
 
     if (filterDomain) allDataQuery = allDataQuery.ilike('domain', `%${filterDomain}%`);
-    if (filterStatus !== 'all') allDataQuery = allDataQuery.eq('"Durum"', filterStatus);  // Güncellendi
-    if (filterCurrency) allDataQuery = allDataQuery.ilike('"Currency"', `%${filterCurrency}%`); // Güncellendi
+    if (filterStatus !== 'all') allDataQuery = allDataQuery.eq('"Durum"', filterStatus);  
+    if (filterCurrency) allDataQuery = allDataQuery.ilike('"Currency"', `%${filterCurrency}%`); 
     if (filterLanguage) allDataQuery = allDataQuery.ilike('language', `%${filterLanguage}%`);
-    if (filterTitle) allDataQuery = allDataQuery.ilike('title', `%${filterTitle}%`); // Güncellendi
+    if (filterTitle) allDataQuery = allDataQuery.ilike('title', `%${filterTitle}%`); 
     if (filterListedurum !== 'all') {
       allDataQuery = allDataQuery.eq('listedurum', filterListedurum === 'true');
     }
@@ -785,7 +804,6 @@ function App() {
     if (filterInceleyen !== 'all') allDataQuery = allDataQuery.eq('inceleyen', filterInceleyen);
     
     if (searchTerm) {
-      // Güncellendi
       const searchConditions = `domain.ilike.%${searchTerm}%,title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,"Currency".ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`; 
       allDataQuery = allDataQuery.or(searchConditions);
     }
@@ -813,6 +831,9 @@ function App() {
         { event: '*', schema: 'public', table: 'scraped_data' }, 
         (payload) => {
           console.log('Veri değişikliği algılandı, grid yenileniyor:', payload);
+          // Eğer değişiklik yapan biz değilsek veya iyimser güncelleme
+          // başarısız olduysa veriyi yeniden yükle
+          // Şimdilik basitçe yeniliyoruz:
           loadGridData(currentPage);
         }
       )
@@ -869,7 +890,7 @@ function App() {
       </select>
       {!currentUser && (
         <p className="text-sm text-red-600 mt-2">
-          Listeleme yapmak (checkbox'ları işaretlemek) için bir kullanıcı seçmeniz gerekmektedir.
+          Listeleme yapmak için bir kullanıcı seçmeniz gerekmektedir.
         </p>
       )}
     </div>
