@@ -133,7 +133,7 @@ export function exportToJSON(data: ScrapedData[]): void {
 // 3. YARDIMCI BİLEŞENLER (COMPONENTS)
 // =================================================================================
 
-// --- ListingDropdown Bileşeni (GÜNCELLENDİ) ---
+// --- ListingDropdown Bileşeni (GÜNCELLENDİ: Optimistic Locking) ---
 interface ListingDropdownProps {
   rowId: string;
   initialValue: boolean | null;
@@ -146,6 +146,7 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceley
   const [currentValue, setCurrentValue] = useState(initialValue);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Supabase Realtime'dan gelen değişiklikleri yakalamak için
   useEffect(() => { 
     setCurrentValue(initialValue); 
   }, [initialValue]);
@@ -172,36 +173,74 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceley
     } else if (newValueString === "false") {
       newValue = false;
     } else {
-      newValue = null; 
+      newValue = null; // "Seçim Yapın" durumu
     }
 
     setIsLoading(true);
-    setCurrentValue(newValue); // Optimistic UI
+    setCurrentValue(newValue); // Optimistic UI (Arayüzü hemen güncelle)
 
-    const isUnassigning = newValue === null;
+    const isUnassigning = newValue === null; // Kullanıcı "Seçim Yapın" mı dedi?
+
+    // Veritabanı güncelleme objesi
+    const updateObject = { 
+      listedurum: newValue, 
+      inceleyen: isUnassigning ? null : currentUser // Evet/Hayır ise 'currentUser' yap, değilse 'null' yap
+    };
 
     // Başlangıç query'si
     let updateQuery = supabase
       .from('scraped_data')
-      .update({ 
-        listedurum: newValue, 
-        inceleyen: isUnassigning ? null : currentUser 
-      }, { count: 'exact' }) // Etkilenen satır sayısını iste
+      .update(updateObject, { count: 'exact' }) // Etkilenen satır sayısını iste
       .eq('id', rowId);
 
     // --- OPTIMISTIC LOCKING KOŞULU ---
     // Güncellemeyi SADECE 'inceleyen' alanı bizim gördüğümüz (initialInceleyen)
     // değerle aynıysa yap.
     if (initialInceleyen === null) {
-      // Eğer biz bu kaydı 'boşta' gördüysek, sadece hala 'boşta' ise güncelle.
+      // Eğer biz bu kaydı 'boşta' (null) gördüysek, sadece hala 'boşta' ise güncelle.
       updateQuery = updateQuery.is('inceleyen', null);
     } else {
       // Eğer biz bu kaydı 'dolu' (örn: 'Mert') gördüysek, sadece hala 'Mert'e aitse güncelle.
+      // Bu, 'Mert'in kendi seçimini (Evet/Hayır/Seçim Yapın) değiştirmesine izin verir.
+      // Bu, 'Efkan'ın 'Mert'in seçimini çalmasına da izin verir *EĞER* 'Efkan'ın amacı buysa.
+      // *DÜZELTME*: Bu mantık, 'Mert'in kaydını 'Efkan'ın çalmasına izin veriyor.
+      // Orijinal sorununuz olan "iki kişi aynı anda NULL'a basmasın" için SADECE NULL kontrolü yeterli.
+      
+      // *İKİNCİ DÜZELTME*: En doğru mantık şudur:
+      // 1. Kaydı SAHİPLENİYORSAM (boştan alıyorsam): Sadece 'null' ise al.
+      // 2. Kaydı DÜZENLİYORSAM (zaten bana aitse): Sadece 'bana' aitse düzenle.
+      // 3. Kaydı BOŞA ÇIKARIYORSAM (Seçim Yapın): Sadece 'bana' aitse boşa çıkar.
+      // 4. BAŞKASININ kaydını almaya ÇALIŞIYORSAM: Bu kilitli olmalı.
+      
+      // Tekrar basitleştirelim: Sorgu, *sadece* gördüğümüz duruma (initialInceleyen) eşitse çalışsın.
       updateQuery = updateQuery.eq('inceleyen', initialInceleyen);
     }
+    
+    // YENİDEN DÜŞÜNÜLDÜ: En sağlam mantık budur:
+    // Eğer 'initialInceleyen' null ise, sadece 'inceleyen' null ise güncelle (İlk gelen alır).
+    // Eğer 'initialInceleyen' null değilse (doluysa), SADECE 'initialInceleyen' == 'currentUser' ise güncelle.
+    // Bu, başkasının işini çalmayı engeller.
+    // AMA siz 'Evet' veya 'Hayır' seçildiğinde 'inceleyen' güncellensin dediniz. Bu "çalmaya" izin verir.
+    
+    // SON KARAR (Önceki cevaptaki gibi, yarış koşulunu engelleyen):
+    let finalQuery = supabase
+      .from('scraped_data')
+      .update(updateObject, { count: 'exact' })
+      .eq('id', rowId);
 
+    if (initialInceleyen === null) {
+      // Sadece boştaysa al (İlk gelen kazanır)
+      finalQuery = finalQuery.is('inceleyen', null);
+    } else {
+      // Zaten doluysa (initialInceleyen = 'Mert' diyelim),
+      // ve ben (currentUser = 'Efkan') bunu değiştirmeye çalışıyorsam (newValue = true),
+      // updateObject { inceleyen: 'Efkan' } olacak.
+      // Koşul: Sadece 'inceleyen' hala 'Mert' ise yap.
+      finalQuery = finalQuery.eq('inceleyen', initialInceleyen);
+    }
+    
     // Query'yi çalıştır ve 'count' (etkilenen satır sayısı) bilgisini al
-    const { error, count } = await updateQuery;
+    const { error, count } = await finalQuery;
       
     if (error) { 
       console.error('Update error:', error); 
@@ -213,11 +252,13 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceley
       // Başka bir kullanıcı bizden önce davrandı.
       console.warn('Update failed: Optimistic lock violation.');
       setCurrentValue(initialValue); // UI'ı geri al
-      alert('Hata: Kaydın durumu siz işlem yapmadan önce başka bir kullanıcı tarafından değiştirildi. Lütfen sayfayı yenileyin.');
+      // Kullanıcıyı bilgilendir, Realtime zaten güncel veriyi (diğer kullanıcının seçimini) getirecek.
+      alert('Hata: Bu kaydın durumu siz işlem yapmadan önce başka bir kullanıcı tarafından değiştirildi. Sayfa güncelleniyor.');
     }
     // Başarılıysa (count > 0), hiçbir şey yapma, Supabase Realtime zaten değişikliği yayacak.
     setIsLoading(false);
   };
+
 
   const selectValue = getValueAsString(currentValue);
 
@@ -904,6 +945,7 @@ function App() {
       if (filterListedurum === 'true') {
         pageQuery = pageQuery.eq('listedurum', true);
       } else {
+        // 'Hayır' (false) veya 'Seçim Yapın' (null) olanları getirir
         pageQuery = pageQuery.or('listedurum.is.false,listedurum.is.null');
       }
     }
@@ -982,7 +1024,7 @@ function App() {
   ]); 
   
   
-  // Veritabanı Değişikliklerini Dinle
+  // Veritabanı Değişikliklerini Dinle (Realtime)
   useEffect(() => {
     const channel = supabase
       .channel('scraped-data-changes')
@@ -991,6 +1033,8 @@ function App() {
         { event: '*', schema: 'public', table: 'scraped_data' }, 
         (payload) => {
           console.log('Veri değişikliği algılandı, grid ve statlar yenileniyor:', payload);
+          // O anki sayfayı ve istatistikleri yeniden yükle
+          // Bu, başka bir kullanıcının yaptığı değişikliği anında yansıtır
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
              loadGridData(currentPage);
              loadStatsData(); 
@@ -1002,14 +1046,14 @@ function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadGridData, currentPage, loadStatsData]); 
+  }, [loadGridData, currentPage, loadStatsData]); // Bağımlılıklara loadStatsData eklendi
   
   
   // İlk yükleme
   useEffect(() => {
     loadGridData(1);
     loadStatsData();
-  }, [loadGridData, loadStatsData]); 
+  }, [loadGridData, loadStatsData]); // loadGridData'ya bağımlı
 
   
   // Filtreler değiştiğinde sayfayı sıfırla
@@ -1017,23 +1061,31 @@ function App() {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
+    // Filtreler değiştiğinde veri yüklemesi zaten 'loadGridData' bağımlılığı
+    // (useEffect [loadGridData]) tarafından tetikleniyor.
+    // Ancak, ilk yükleme için ve filtreler değiştiğinde
+    // 1. sayfayı yüklemek için 'loadGridData'yı burada çağırmak daha doğru.
+    loadGridData(1); 
+    loadStatsData(); // Filtreler değiştiğinde istatistikler de güncellenmeli.
+    
   }, [
     searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, 
     filterTitle, filterListedurum, filterNiche, filterCiro, filterTrafik, 
-    filterProductCount, filterApp, filterTheme, filterInceleyen
+    filterProductCount, filterApp, filterTheme, filterInceleyen,
+    // loadGridData ve loadStatsData'yı buraya eklemeyin (sonsuz döngü)
   ]); 
 
   
   // Sayfa değiştiğinde veri yükle
   useEffect(() => {
     loadGridData(currentPage);
-  }, [currentPage, loadGridData]); 
+  }, [currentPage]); // Sadece currentPage değiştiğinde tetiklenir
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
   }, []);
   
-  // "İnceleyen Kişi" kartı buradan kaldırıldı
+  // "İnceleyen Kişi" kartı (Header'dan) kaldırıldı
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
