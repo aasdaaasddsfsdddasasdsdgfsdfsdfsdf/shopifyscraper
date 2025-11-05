@@ -7,7 +7,7 @@ import {
   CheckSquare,
   DollarSign, 
   Euro, 
-  Briefcase 
+  Briefcase // Briefcase (TRY için jenerik ikon)
 } from 'lucide-react';
 
 // =================================================================================
@@ -59,12 +59,10 @@ interface StatsData {
   usd: number;
   eu: number;
 }
-// === DEĞİŞİKLİK 1: İnceleyen Kişi Sayıları için Arayüz ===
 interface ReviewerStat {
   name: string;
   count: number;
 }
-// === DEĞİŞİKLİK 1 SONU ===
 
 
 // =================================================================================
@@ -237,16 +235,17 @@ const ImageModal = memo(({ imageUrl, onClose }: ImageModalProps) => {
   );
 });
 
-// --- StatsCards Bileşeni (Değişiklik yok) ---
+// === DEĞİŞİKLİK 3: StatsCard component'i valuePrefix prop'u alacak şekilde güncellendi ===
 interface StatsCardProps {
   title: string;
   value: number;
   icon: React.ElementType;
   color: string;
   isLoading: boolean;
+  valuePrefix?: string; // <<< EKLENDİ
 }
 
-const StatsCard = ({ title, value, icon: Icon, color, isLoading }: StatsCardProps) => (
+const StatsCard = ({ title, value, icon: Icon, color, isLoading, valuePrefix }: StatsCardProps) => (
   <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex items-center gap-4">
     <div className={`w-12 h-12 rounded-full flex items-center justify-center ${color}`}>
       <Icon className="w-6 h-6 text-white" />
@@ -256,7 +255,8 @@ const StatsCard = ({ title, value, icon: Icon, color, isLoading }: StatsCardProp
       {isLoading ? (
         <Loader2 className="w-6 h-6 animate-spin text-gray-400 mt-1" />
       ) : (
-        <div className="text-2xl font-bold text-gray-900">{value.toLocaleString()}</div>
+        // <<< DEĞİŞİKLİK: ValuePrefix eklendi
+        <div className="text-2xl font-bold text-gray-900">{valuePrefix}{value.toLocaleString()}</div> 
       )}
     </div>
   </div>
@@ -276,31 +276,36 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
       color="bg-blue-500"
       isLoading={isLoading}
     />
-<StatsCard
-  title="TR Pazarı (TRY)"
-  value={stats?.tr ?? 0}
-  icon={<span className="text-lg font-bold">₺</span>}
-  color="bg-red-500"
-  isLoading={isLoading}
-/>
-
-
+    {/* <<< DEĞİŞİKLİK: valuePrefix="₺" eklendi */}
+    <StatsCard
+      title="TR Pazarı (TRY)"
+      value={stats?.tr ?? 0}
+      icon={Briefcase}
+      color="bg-red-500"
+      isLoading={isLoading}
+      valuePrefix="₺" // <<< EKLENDİ
+    />
+    {/* <<< DEĞİŞİKLİK: valuePrefix="$" eklendi */}
     <StatsCard
       title="USD Pazarı"
       value={stats?.usd ?? 0}
       icon={DollarSign}
       color="bg-green-500"
       isLoading={isLoading}
+      valuePrefix="$" // <<< EKLENDİ
     />
+    {/* <<< DEĞİŞİKLİK: valuePrefix="€" eklendi */}
     <StatsCard
       title="EU Pazarı (EUR)"
       value={stats?.eu ?? 0}
       icon={Euro}
       color="bg-yellow-500"
       isLoading={isLoading}
+      valuePrefix="€" // <<< EKLENDİ
     />
   </div>
 );
+// === DEĞİŞİKLİK 3 SONU ===
 
 
 // --- DataTable Bileşeni (Varsayılan Sütunlar ve Ekrana Sığdırma Güncellendi) ---
@@ -324,7 +329,6 @@ const ALL_COLUMNS = [
   { key: 'pazar', label: 'Pazar', defaultVisible: false },
 ];
 
-// === DEĞİŞİKLİK 2: DataTableProps güncellendi ===
 interface DataTableProps {
   data: ScrapedData[];
   currentPage: number;
@@ -334,10 +338,10 @@ interface DataTableProps {
   allData: ScrapedData[]; 
   isLoading: boolean;
   currentUser: string; 
-  setCurrentUser: (value: string) => void; // Eklendi
-  reviewers: string[]; // Bu artık kullanılmayacak, reviewerStats kullanılacak
-  reviewerStats: ReviewerStat[]; // Eklendi
-  isStatsLoading: boolean; // Eklendi
+  setCurrentUser: (value: string) => void; 
+  reviewers: string[]; 
+  reviewerStats: ReviewerStat[];
+  isStatsLoading: boolean; 
   
   // Filtreler ve Setter'ları
   searchTerm: string;
@@ -369,7 +373,6 @@ interface DataTableProps {
   filterInceleyen: 'all' | string;
   setFilterInceleyen: (value: 'all' | string) => void;
 }
-// === DEĞİŞİKLİK 2 SONU ===
 
 const DataTable = memo(({
   data,
@@ -379,11 +382,9 @@ const DataTable = memo(({
   onPageChange,
   isLoading,
   currentUser,
-  // === DEĞİŞİKLİK 3: Yeni proplar alındı ===
   setCurrentUser,
   reviewerStats,
   isStatsLoading,
-  // === DEĞİŞİKLİK 3 SONU ===
   ...filterProps 
 }: DataTableProps) => {
   
@@ -468,12 +469,12 @@ const DataTable = memo(({
     );
   };
 
-  // --- filterControls GÜNCELLENDİ (Export butonları kaldırıldı) ---
+  // --- filterControls GÜNCELLENDİ (İnceleyen Seçimi Filtre Yanına Taşındı) ---
   const filterControls = (
     <div className="p-4 border-b border-gray-200">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-gray-800">
-          Veri Sayısı ({totalRecords.toLocaleString()} records)
+          Scraped Data ({totalRecords.toLocaleString()} records)
         </h3>
         <div className="flex gap-2">
           {/* Sütun Yönetimi */}
@@ -517,7 +518,7 @@ const DataTable = memo(({
         </div>
       </div>
       
-      {/* === DEĞİŞİKLİK 4: Filtre Gridi Güncellendi (UserSelector eklendi) === */}
+      {/* Filtre Inputları */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         <div className="relative md:col-span-2">
           <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
@@ -559,7 +560,6 @@ const DataTable = memo(({
         
         <select value={localFilterInceleyen} onChange={(e) => setLocalFilterInceleyen(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
           <option value="all">Filtrele: İnceleyen</option>
-          {/* İnceleyen listesi artık statik REVIEWERS listesinden geliyor */}
           {REVIEWERS.map(r => (<option key={r} value={r}>{r}</option>))}
         </select>
         
@@ -571,7 +571,7 @@ const DataTable = memo(({
           Filtreleri Temizle
         </button>
         
-        {/* İnceleyen Kişi Seçimi (Sayılarla Birlikte) Buraya Taşındı */}
+        {/* === DEĞİŞİKLİK 4: İnceleyen Kişi Seçimi (Sayılarla Birlikte) Buraya Taşındı === */}
         <select
           id="user-selector"
           value={currentUser}
@@ -586,8 +586,8 @@ const DataTable = memo(({
             </option>
           ))}
         </select>
+        {/* === DEĞİŞİKLİK 4 SONU === */}
       </div>
-      {/* === DEĞİŞİKLİK 4 SONU === */}
     </div>
   );
   
@@ -640,7 +640,7 @@ const DataTable = memo(({
                   {visibleColumns.includes('product_count') && <th className={thCell}>Ürün Sayısı</th>}
                   {visibleColumns.includes('app') && <th className={thCell}>App</th>}
                   {visibleColumns.includes('theme') && <th className={thCell}>Theme</th>}
-                  {visibleColumns.includes('adlink') && <th className{...thCell}>Ad Link</th>}
+                  {visibleColumns.includes('adlink') && <th className={thCell}>Ad Link</th>}
                   {visibleColumns.includes('Currency') && <th className={thCell}>Currency</th>}
                   {visibleColumns.includes('language') && <th className={thCell}>Language</th>}
                   {visibleColumns.includes('Durum') && <th className={thCell}>Status</th>}       
@@ -783,7 +783,7 @@ function App() {
 
   // Stats State
   const [statsData, setStatsData] = useState<StatsData | null>(null);
-  const [reviewerStats, setReviewerStats] = useState<ReviewerStat[]>([]); // Güncellendi
+  const [reviewerStats, setReviewerStats] = useState<ReviewerStat[]>([]); 
   const [isStatsLoading, setIsStatsLoading] = useState(true);
 
   // --- Filtre State'leri (Değişiklik yok) ---
@@ -804,17 +804,18 @@ function App() {
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
-  // === DEĞİŞİKLİK 5: İstatistik Yükleme Fonksiyonu Güncellendi (İnceleyen Sayıları Eklendi) ===
+  // İstatistik Yükleme Fonksiyonu Güncellendi (İnceleyen Sayıları Eklendi)
   const loadStatsData = useCallback(async () => {
     setIsStatsLoading(true);
     try {
       // Pazar Yeri İstatistikleri
-      const toplamQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).eq('listedurum', true);
-      const trQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).eq('listedurum', true).eq('"Currency"', 'TRY');
-      const usdQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).eq('listedurum', true).eq('"Currency"', 'USD');
-      const euQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).eq('listedurum', true).eq('"Currency"', 'EUR');
+      // listedurum: null olmayanlar sayılır (Yani 'Evet' veya 'Hayır' olarak işaretlenenler)
+      const toplamQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).not('listedurum', 'is', null);
+      const trQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).not('listedurum', 'is', null).eq('"Currency"', 'TRY');
+      const usdQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).not('listedurum', 'is', null).eq('"Currency"', 'USD');
+      const euQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).not('listedurum', 'is', null).eq('"Currency"', 'EUR');
 
-      // İnceleyen Kişi Sayıları (Sadece 'listedurum' true veya false olanlar, null olmayanlar)
+      // İnceleyen Kişi Sayıları (Sadece 'listedurum' null olmayanlar)
       const reviewerCountPromises = REVIEWERS.map(name =>
         supabase
           .from('scraped_data')
@@ -852,8 +853,7 @@ function App() {
       setReviewerStats([]);
     }
     setIsStatsLoading(false);
-  }, []); // Bağımlılık yok, çünkü REVIEWERS artık sabit
-  // === DEĞİŞİKLİK 5 SONU ===
+  }, []); 
 
 
   // --- Veri Yükleme Fonksiyonu (Filtreler için) ---
@@ -909,7 +909,6 @@ function App() {
       setTotalRecords(count || 0);
     }
 
-    // --- Dışa Aktarım Sorgusu (Kaldırıldı ama allData state'i lazım olabilir diye duruyor) ---
     let allDataQuery = supabase
       .from('scraped_data')
       .select('*');
@@ -1006,21 +1005,23 @@ function App() {
     setCurrentPage(page);
   }, []);
   
+  // "İnceleyen Kişi" kartı buradan kaldırıldı
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <Database className="w-8 h-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Roasell Veri Filtreleme ve Yönetme Arayüzü</h1>
+            <h1 className="text-3xl font-bold text-gray-900">MerchantGenius</h1>
           </div>
-       
+          <p className="text-gray-600">
+            Veri filtreleme ve yönetme arayüzü
+          </p>
         </div>
 
         {/* Veri Kartları */}
         <StatsCards stats={statsData} isLoading={isStatsLoading} />
-
-        {/* "İnceleyen Kişi" bloğu buradan kaldırıldı */}
 
         <DataTable
           data={data}
@@ -1031,13 +1032,11 @@ function App() {
           allData={allData} 
           isLoading={isLoading}
           
-          // === DEĞİŞİKLİK 6: Yeni proplar DataTable'a geçirildi ===
           currentUser={currentUser} 
           setCurrentUser={setCurrentUser}
           reviewerStats={reviewerStats}
           isStatsLoading={isStatsLoading}
-          reviewers={REVIEWERS} // Bu hala filtre için kullanılıyor
-          // === DEĞİŞİKLİK 6 SONU ===
+          reviewers={REVIEWERS}
           
           // ... (Tüm filtre prop'ları) ...
           searchTerm={searchTerm} setSearchTerm={setSearchTerm}
