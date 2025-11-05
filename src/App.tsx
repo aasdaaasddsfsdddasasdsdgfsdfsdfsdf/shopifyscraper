@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, memo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { 
   Database, UserCheck, Loader2, 
-  ChevronLeft, ChevronRight, Download, FileJson, Search, Filter, 
+  ChevronLeft, ChevronRight, Search, Filter, 
   ExternalLink, Settings2, X 
 } from 'lucide-react';
 
@@ -46,7 +46,7 @@ export interface ScrapedData {
 }
 
 // =================================================================================
-// 2. EXPORT FONKSİYONLARI (GÜNCELLENDİ)
+// 2. EXPORT FONKSİYONLARI (KODDA KULLANILMIYOR AMA SİLİNMEDİ)
 // =================================================================================
 
 function escapeCSV(value: string | null | undefined | number | boolean): string {
@@ -223,7 +223,7 @@ interface DataTableProps {
   totalPages: number;
   totalRecords: number;
   onPageChange: (page: number) => void;
-  allData: ScrapedData[];
+  allData: ScrapedData[]; // Bu prop artık kullanılmıyor (export kaldırıldığı için)
   isLoading: boolean;
   currentUser: string; 
   reviewers: string[];
@@ -265,7 +265,7 @@ const DataTable = memo(({
   totalPages,
   totalRecords,
   onPageChange,
-  allData,
+  // allData prop'u kaldırıldı
   isLoading,
   currentUser,
   reviewers,
@@ -353,6 +353,7 @@ const DataTable = memo(({
     );
   };
 
+  // --- filterControls GÜNCELLENDİ (Export butonları kaldırıldı) ---
   const filterControls = (
     <div className="p-4 border-b border-gray-200">
       <div className="flex justify-between items-center mb-4">
@@ -397,21 +398,11 @@ const DataTable = memo(({
               </div>
             )}
           </div>
-          {/* Export Butonları */}
-          <button
-            onClick={() => exportToCSV(allData)}
-            disabled={allData.length === 0}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm font-medium disabled:bg-gray-400"
-          > <Download className="w-4 h-4" /> CSV </button>
-          <button
-            onClick={() => exportToJSON(allData)}
-            disabled={allData.length === 0}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium disabled:bg-gray-400"
-          > <FileJson className="w-4 h-4" /> JSON </button>
+          {/* Export Butonları KALDIRILDI */}
         </div>
       </div>
       
-      {/* Filtre Inputları */}
+      {/* Filtre Inputları (Değişiklik yok) */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         <div className="relative md:col-span-2">
           <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
@@ -470,7 +461,7 @@ const DataTable = memo(({
                      (val !== 'all' && typeof val !== 'function');
             })
               ? 'Filtrelerinizle eşleşen kayıt bulunamadı.'
-              : 'Veri bulunamadı. Veritabanı panelinden CSV yükleyebilirsiniz.'
+              : 'Veri bulunamadı.' // Mesaj güncellendi
             }
           </p>
         </div>
@@ -639,7 +630,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState('');
   
   const [data, setData] = useState<ScrapedData[]>([]);
-  const [allData, setAllData] = useState<ScrapedData[]>([]); 
+  const [allData, setAllData] = useState<ScrapedData[]>([]); // 'allData' 'loadGridData' içinde hala kullanılıyor
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -712,6 +703,8 @@ function App() {
     }
 
     // --- Dışa Aktarım Sorgusu (GÜNCELLENDİ) ---
+    // (Export butonları kaldırılsa bile, allData'yı (veya export işlevselliğini)
+    // gelecekte kullanmak üzere kodda bırakmak iyi bir pratiktir)
     let allDataQuery = supabase
       .from('scraped_data')
       .select('*');
@@ -840,10 +833,7 @@ function App() {
 
         {userSelector}
 
-        <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4">
-          <h3 className="font-semibold">Veri Yükleme Notu</h3>
-          <p className="text-sm">Veri yüklemek için lütfen Supabase arayüzündeki <code className="bg-blue-100 px-1 py-0.5 rounded">scraped_data</code> tablosunu kullanın ve "Import data from CSV" özelliğini seçin.</p>
-        </div>
+        {/* --- Veri Yükleme Notu KALDIRILDI --- */}
 
         <DataTable
           data={data}
