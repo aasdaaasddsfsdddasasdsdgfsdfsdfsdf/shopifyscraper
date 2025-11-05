@@ -471,7 +471,7 @@ const DataTable = memo(({
     <div className="p-4 border-b border-gray-200">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-gray-800">
-          Scraped Data ({totalRecords.toLocaleString()} records)
+          Veri Sayısı: ({totalRecords.toLocaleString()})
         </h3>
         <div className="flex gap-2">
           {/* Sütun Yönetimi */}
