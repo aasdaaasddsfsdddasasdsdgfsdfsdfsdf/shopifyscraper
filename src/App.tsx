@@ -133,13 +133,16 @@ export function exportToJSON(data: ScrapedData[]): void {
 // 3. YARDIMCI BİLEŞENLER (COMPONENTS)
 // =================================================================================
 
-// --- ListingDropdown Bileşeni (Değişiklik yok) ---
+// --- ListingDropdown Bileşeni (GÜNCELLENDİ) ---
 interface ListingDropdownProps {
   rowId: string;
   initialValue: boolean | null;
   currentUser: string;
+  initialInceleyen: string | null; // <<< DEĞİŞİKLİK 1: EKLENDİ
 }
-const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropdownProps) => {
+
+// <<< DEĞİŞİKLİK 1: initialInceleyen prop'u eklendi
+const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceleyen }: ListingDropdownProps) => {
   const [currentValue, setCurrentValue] = useState(initialValue);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -153,6 +156,7 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropd
     return "unset"; 
   };
   
+  // <<< DEĞİŞİKLİK 2: handleChange fonksiyonu Optimistic Locking için güncellendi
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (!currentUser) { 
       alert('Lütfen işlem yapmadan önce "İnceleyen Kişi" seçimi yapın.'); 
@@ -172,21 +176,46 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropd
     }
 
     setIsLoading(true);
-    setCurrentValue(newValue); 
+    setCurrentValue(newValue); // Optimistic UI
 
-    const { error } = await supabase
+    const isUnassigning = newValue === null;
+
+    // Başlangıç query'si
+    let updateQuery = supabase
       .from('scraped_data')
       .update({ 
         listedurum: newValue, 
-        inceleyen: newValue === null ? null : currentUser 
-      })
+        inceleyen: isUnassigning ? null : currentUser 
+      }, { count: 'exact' }) // Etkilenen satır sayısını iste
       .eq('id', rowId);
+
+    // --- OPTIMISTIC LOCKING KOŞULU ---
+    // Güncellemeyi SADECE 'inceleyen' alanı bizim gördüğümüz (initialInceleyen)
+    // değerle aynıysa yap.
+    if (initialInceleyen === null) {
+      // Eğer biz bu kaydı 'boşta' gördüysek, sadece hala 'boşta' ise güncelle.
+      updateQuery = updateQuery.is('inceleyen', null);
+    } else {
+      // Eğer biz bu kaydı 'dolu' (örn: 'Mert') gördüysek, sadece hala 'Mert'e aitse güncelle.
+      updateQuery = updateQuery.eq('inceleyen', initialInceleyen);
+    }
+
+    // Query'yi çalıştır ve 'count' (etkilenen satır sayısı) bilgisini al
+    const { error, count } = await updateQuery;
       
     if (error) { 
       console.error('Update error:', error); 
-      setCurrentValue(initialValue); 
+      setCurrentValue(initialValue); // Hata varsa UI'ı geri al
       alert(`Hata: ${error.message}`); 
+    } else if (count === 0 && !error) {
+      // Hata yok AMA count = 0 ise,
+      // bu, 'where' koşulumuzun (optimistic lock) başarısız olduğu anlamına gelir.
+      // Başka bir kullanıcı bizden önce davrandı.
+      console.warn('Update failed: Optimistic lock violation.');
+      setCurrentValue(initialValue); // UI'ı geri al
+      alert('Hata: Kaydın durumu siz işlem yapmadan önce başka bir kullanıcı tarafından değiştirildi. Lütfen sayfayı yenileyin.');
     }
+    // Başarılıysa (count > 0), hiçbir şey yapma, Supabase Realtime zaten değişikliği yayacak.
     setIsLoading(false);
   };
 
@@ -722,10 +751,12 @@ const DataTable = memo(({
                     
                     {visibleColumns.includes('listedurum') && (
                       <td className={`${tdCell} text-center`}>
+                        {/* <<< DEĞİŞİKLİK 3: initialInceleyen prop'u eklendi */}
                         <ListingDropdown 
                           rowId={row.id} 
                           initialValue={row.listedurum} 
-                          currentUser={currentUser} 
+                          currentUser={currentUser}
+                          initialInceleyen={row.inceleyen} 
                         />
                       </td>
                     )}
