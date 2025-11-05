@@ -112,7 +112,7 @@ export function exportToCSV(data: ScrapedData[]): void {
       escapeCSV(row.trafik), escapeCSV(row.product_count), escapeCSV(row.app),
       escapeCSV(row.theme), escapeCSV(row.adlink), escapeCSV(row["Currency"]), 
       escapeCSV(row.language), escapeCSV(row["Durum"]), escapeCSV(row.title),      
-      escapeCSV(row.image1), escapeCSV(row.image2), escapeCSV(row.image3),     
+      escapeCSV(row.image1), escapeCSV(row.image2), escapeCSV(row.image3),      
       escapeCSV(row.product_error), String(row.listedurum), escapeCSV(row.inceleyen),
       escapeCSV(row.pazar),
     ];
@@ -128,7 +128,7 @@ export function exportToJSON(data: ScrapedData[]): void {
     trafik: row.trafik, product_count: row.product_count, app: row.app,
     theme: row.theme, adlink: row.adlink, Currency: row["Currency"], 
     language: row.language, listedurum: row.listedurum, inceleyen: row.inceleyen,
-    status: row["Durum"], title: row.title, image1: row.image1,        
+    status: row["Durum"], title: row.title, image1: row.image1,      
     image2: row.image2, image3: row.image3, product_error: row.product_error,
     pazar: row.pazar,
   }));
@@ -344,7 +344,8 @@ const ALL_COLUMNS = [
   { key: 'app', label: 'App', defaultVisible: false, sortable: true },
   { key: 'theme', label: 'Theme', defaultVisible: false, sortable: true },
   { key: 'adlink', label: 'Ad Link', defaultVisible: true, sortable: true },
-  { key: 'Currency', label: 'Currency', defaultVisible: false, sortable: true },
+  // <<< DEĞİŞİKLİK 2: 'Currency' sütunu varsayılan olarak görünür yapıldı (false -> true)
+  { key: 'Currency', label: 'Currency', defaultVisible: true, sortable: true },
   { key: 'language', label: 'Language', defaultVisible: false, sortable: true },
   { key: 'Durum', label: 'Status', defaultVisible: false, sortable: true },
   { key: 'title', label: 'Product Title', defaultVisible: true, sortable: true },
@@ -728,7 +729,7 @@ const DataTable = memo(({
                   {visibleColumns.includes('adlink') && <th className={thSortableCell} onClick={() => onSortChange('adlink')}><div className="flex items-center gap-1">Ad Link {getSortIcon('adlink')}</div></th>}
                   {visibleColumns.includes('Currency') && <th className={thSortableCell} onClick={() => onSortChange('Currency')}><div className="flex items-center gap-1">Currency {getSortIcon('Currency')}</div></th>}
                   {visibleColumns.includes('language') && <th className={thSortableCell} onClick={() => onSortChange('language')}><div className="flex items-center gap-1">Language {getSortIcon('language')}</div></th>}
-                  {visibleColumns.includes('Durum') && <th className={thSortableCell} onClick={() => onSortChange('Durum')}><div className="flex items-center gap-1">Status {getSortIcon('Durum')}</div></th>}       
+                  {visibleColumns.includes('Durum') && <th className={thSortableCell} onClick={() => onSortChange('Durum')}><div className="flex items-center gap-1">Status {getSortIcon('Durum')}</div></th>}    
                   {visibleColumns.includes('title') && <th className={thSortableCell} onClick={() => onSortChange('title')}><div className="flex items-center gap-1">Product Title {getSortIcon('title')}</div></th>}  
                   
                   {visibleColumns.includes('images') && <th className={thCell}>Products</th>} {/* Sıralanamaz */}
@@ -924,8 +925,9 @@ function App() {
   const [isStatsLoading, setIsStatsLoading] = useState(true);
 
   // --- YENİ: Sıralama State'i ---
-  const [sortColumn, setSortColumn] = useState<string>('date'); // Varsayılan sıralama
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc'); // Varsayılan yön
+  // <<< DEĞİŞİKLİK 1: Varsayılan sıralama 'date' yerine 'ciro' yapıldı.
+  const [sortColumn, setSortColumn] = useState<string>('ciro'); // Varsayılan sıralama ciro oldu
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc'); // Varsayılan yön (desc = yüksekten düşüğe)
 
   // --- Filtre State'leri (Değişiklik yok) ---
   const [searchTerm, setSearchTerm] = useState('');
@@ -1229,7 +1231,7 @@ function App() {
             <Database className="w-8 h-8 text-blue-600" />
             <h1 className="text-3xl font-bold text-gray-900">Roasell Veri Filtreleme ve Yönetme Arayüzü </h1>
           </div>
-    
+     
         </div>
 
         {/* Veri Kartları */}
