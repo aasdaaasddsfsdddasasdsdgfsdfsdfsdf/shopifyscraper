@@ -279,7 +279,7 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
     <StatsCard
       title="TR Pazarı (TRY)"
       value={stats?.tr ?? 0}
-      icon={lira-sign}
+      icon={lirasign}
       color="bg-red-500"
       isLoading={isLoading}
     />
