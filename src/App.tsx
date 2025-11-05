@@ -67,12 +67,11 @@ interface ProductCardProps {
 }
 
 function ProductCard({ product, showCountryBadge }: ProductCardProps) {
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const images = [product.image1, product.image2, product.image3].filter(Boolean) as string[];
-  const mainImage = images[0] || '';
-  const thumbnails = images.slice(1, 4);
+  const mainImage = images[selectedImageIndex] || '';
 
   const countryCode = product.pazar?.toUpperCase() || '';
-  const countryName = COUNTRY_MAP[countryCode] || countryCode;
 
   return (
     <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col h-full border border-gray-700">
@@ -101,19 +100,27 @@ function ProductCard({ product, showCountryBadge }: ProductCardProps) {
       </div>
 
       <div className="p-4 flex flex-col flex-grow">
-        {thumbnails.length > 0 && (
+        {images.length > 1 && (
           <div className="flex gap-2 mb-4">
-            {thumbnails.map((img, idx) => (
-              <div key={idx} className="w-16 h-16 rounded-lg overflow-hidden bg-gray-700 border border-gray-600">
+            {images.map((img, idx) => (
+              <button
+                key={idx}
+                onClick={() => setSelectedImageIndex(idx)}
+                className={`w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${
+                  selectedImageIndex === idx
+                    ? 'border-blue-500 shadow-lg'
+                    : 'border-gray-600 hover:border-gray-500'
+                }`}
+              >
                 <img
                   src={img}
-                  alt={`Product ${idx + 2}`}
+                  alt={`Product ${idx + 1}`}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect fill="%23374151" width="64" height="64"/%3E%3C/svg%3E';
                   }}
                 />
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -157,25 +164,25 @@ function ProductCard({ product, showCountryBadge }: ProductCardProps) {
         )}
 
         <div className="flex gap-2 mt-auto pt-3 border-t border-gray-700">
+          <a
+            href={`https://${product.domain}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Git
+          </a>
           {product.adlink && (
             <a
               href={product.adlink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors"
             >
-              <ExternalLink className="w-4 h-4" />
-              Git
+              Library
             </a>
           )}
-          <a
-            href={`https://${product.domain}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            Library
-          </a>
         </div>
       </div>
     </div>
@@ -189,6 +196,12 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
+  const [filterNiche, setFilterNiche] = useState('');
+  const [filterDomain, setFilterDomain] = useState('');
+  const [filterTitle, setFilterTitle] = useState('');
+  const [filterCiroMin, setFilterCiroMin] = useState('');
+  const [filterCiroMax, setFilterCiroMax] = useState('');
+
   const ITEMS_PER_PAGE = 25;
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
@@ -197,12 +210,36 @@ function App() {
     const offset = (page - 1) * ITEMS_PER_PAGE;
 
     try {
-      const { data, error, count } = await supabase
+      let query = supabase
         .from('scraped_data')
         .select('*', { count: 'exact' })
         .eq('"Currency"', currency)
         .eq('listedurum', true)
-        .eq('"Durum"', 'open')
+        .eq('"Durum"', 'open');
+
+      if (filterNiche) {
+        query = query.ilike('niche', `%${filterNiche}%`);
+      }
+      if (filterDomain) {
+        query = query.ilike('domain', `%${filterDomain}%`);
+      }
+      if (filterTitle) {
+        query = query.ilike('title', `%${filterTitle}%`);
+      }
+      if (filterCiroMin) {
+        const minVal = parseFloat(filterCiroMin);
+        if (!isNaN(minVal)) {
+          query = query.gte('ciro', minVal);
+        }
+      }
+      if (filterCiroMax) {
+        const maxVal = parseFloat(filterCiroMax);
+        if (!isNaN(maxVal)) {
+          query = query.lte('ciro', maxVal);
+        }
+      }
+
+      const { data, error, count } = await query
         .order('date', { ascending: false })
         .range(offset, offset + ITEMS_PER_PAGE - 1);
 
@@ -221,7 +258,7 @@ function App() {
     }
 
     setIsLoading(false);
-  }, []);
+  }, [filterNiche, filterDomain, filterTitle, filterCiroMin, filterCiroMax]);
 
   useEffect(() => {
     loadProducts(activeTab, currentPage);
@@ -229,7 +266,7 @@ function App() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab]);
+  }, [activeTab, filterNiche, filterDomain, filterTitle, filterCiroMin, filterCiroMax]);
 
   useEffect(() => {
     const channel = supabase
@@ -251,13 +288,13 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       <div className="max-w-[1920px] mx-auto px-6 py-8">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-6">
+        <div className="mb-8 flex flex-col items-center">
+          <div className="flex items-center gap-3 mb-8">
             <Database className="w-10 h-10 text-blue-500" />
             <h1 className="text-4xl font-bold text-white">Roasell Ürün Galerisi</h1>
           </div>
 
-          <div className="flex gap-3 bg-gray-800 p-2 rounded-xl border border-gray-700 inline-flex">
+          <div className="flex gap-3 bg-gray-800 p-2 rounded-xl border border-gray-700 mb-8">
             <button
               onClick={() => setActiveTab('TRY')}
               className={`px-6 py-3 rounded-lg font-semibold text-base transition-all ${
@@ -290,8 +327,80 @@ function App() {
             </button>
           </div>
 
+          <div className="w-full max-w-4xl bg-gray-800 border border-gray-700 rounded-xl p-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Niş Ara</label>
+                <input
+                  type="text"
+                  placeholder="Örn: elektronik"
+                  value={filterNiche}
+                  onChange={(e) => setFilterNiche(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Domain Ara</label>
+                <input
+                  type="text"
+                  placeholder="Örn: amazon"
+                  value={filterDomain}
+                  onChange={(e) => setFilterDomain(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Ürün Ara</label>
+                <input
+                  type="text"
+                  placeholder="Örn: şarj cihazı"
+                  value={filterTitle}
+                  onChange={(e) => setFilterTitle(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Min. Satış ($)</label>
+                <input
+                  type="number"
+                  placeholder="Minimum"
+                  value={filterCiroMin}
+                  onChange={(e) => setFilterCiroMin(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Max. Satış ($)</label>
+                <input
+                  type="number"
+                  placeholder="Maksimum"
+                  value={filterCiroMax}
+                  onChange={(e) => setFilterCiroMax(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setFilterNiche('');
+                setFilterDomain('');
+                setFilterTitle('');
+                setFilterCiroMin('');
+                setFilterCiroMax('');
+              }}
+              className="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm font-medium transition"
+            >
+              Filtreleri Temizle
+            </button>
+          </div>
+
           {!isLoading && (
-            <p className="text-gray-400 mt-4">
+            <p className="text-gray-400 text-lg">
               Toplam {totalRecords} ürün bulundu
             </p>
           )}
