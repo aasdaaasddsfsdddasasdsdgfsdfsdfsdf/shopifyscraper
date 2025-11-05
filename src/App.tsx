@@ -23,7 +23,6 @@ export interface ScrapedData {
   language: string | null;
   created_at: string;
   
-  // === DEĞİŞİKLİK 1: listedurum artık 'null' (boş) olabilir ===
   listedurum: boolean | null; 
   inceleyen: string | null;
   
@@ -71,7 +70,6 @@ function downloadFile(content: string, filename: string, mimeType: string): void
   URL.revokeObjectURL(url);
 }
 
-// (Export fonksiyonları, 'listedurum' için 'null'u da yönetebilir, ancak şu an için bir değişiklik gerekmiyor)
 // ... exportToCSV ve exportToJSON fonksiyonları (değişiklik yok) ...
 export function exportToCSV(data: ScrapedData[]): void {
   if (data.length === 0) return;
@@ -145,7 +143,7 @@ export function exportToJSON(data: ScrapedData[]): void {
 // 4. BİLEŞENLER (COMPONENTS)
 // =================================================================================
 
-// --- DEĞİŞİKLİK 2: Dropdown Bileşeni 'null' (boş) durumu içerecek şekilde güncellendi ---
+// --- ListingDropdown Bileşeni (Değişiklik yok) ---
 interface ListingDropdownProps {
   rowId: string;
   initialValue: boolean | null; // Artık null olabilir
@@ -191,7 +189,6 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropd
       .from('scraped_data')
       .update({ 
         listedurum: newValue, 
-        // "Evet" veya "Hayır" seçilirse inceleyeni ata, "Seçim Yapın" (null) seçilirse inceleyeni kaldır
         inceleyen: newValue === null ? null : currentUser 
       })
       .eq('id', rowId);
@@ -216,16 +213,14 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropd
           className={`w-28 px-2 py-1 border rounded-md text-sm font-medium ${
             !currentUser ? 'cursor-not-allowed opacity-50 bg-gray-100' : 'cursor-pointer'
           } ${
-            // Duruma göre renklendirme
             selectValue === 'true' 
               ? 'bg-green-100 text-green-800 border-green-200' 
             : selectValue === 'false'
               ? 'bg-red-100 text-red-800 border-red-200'
-              : 'bg-gray-100 text-gray-700 border-gray-200' // 'unset' (boş) için nötr stil
+              : 'bg-gray-100 text-gray-700 border-gray-200'
           }`}
           title={!currentUser ? 'İşlem yapmak için inceleyen kişi seçmelisiniz' : 'Listeleme durumunu değiştir'}
         >
-          {/* "unset" değeri 'null' (boş) durumu temsil eder */}
           <option value="unset">Seçim Yapın</option> 
           <option value="true">Evet</option>
           <option value="false">Hayır</option>
@@ -234,7 +229,6 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropd
     </div>
   );
 });
-// --- DEĞİŞİKLİK 2 SONU ---
 
 
 // --- ImageModal Bileşeni (Değişiklik yok) ---
@@ -254,25 +248,28 @@ const ImageModal = memo(({ imageUrl, onClose }: ImageModalProps) => {
 
 
 // --- DataTable Bileşeni (GÜNCELLENDİ) ---
+
+// === DEĞİŞİKLİK 1: Varsayılan Sütun Görünürlüğü Güncellendi ===
 const ALL_COLUMNS = [
-  { key: 'date', label: 'Date', defaultVisible: true },
-  { key: 'domain', label: 'Domain', defaultVisible: true },
-  { key: 'niche', label: 'Niche', defaultVisible: true },
-  { key: 'ciro', label: 'Ciro', defaultVisible: true },
-  { key: 'trafik', label: 'Trafik', defaultVisible: true },
-  { key: 'product_count', label: 'Ürün Sayısı', defaultVisible: false },
-  { key: 'app', label: 'App', defaultVisible: true },
-  { key: 'theme', label: 'Theme', defaultVisible: false },
-  { key: 'adlink', label: 'Ad Link', defaultVisible: true },
-  { key: 'Currency', label: 'Currency', defaultVisible: false }, 
-  { key: 'language', label: 'Language', defaultVisible: false },
-  { key: 'Durum', label: 'Status', defaultVisible: true },    
-  { key: 'title', label: 'Product Title', defaultVisible: true }, 
-  { key: 'images', label: 'Products', defaultVisible: true }, 
-  { key: 'inceleyen', label: 'İnceleyen', defaultVisible: true },
-  { key: 'listedurum', label: 'Listelensin mi?', defaultVisible: true },
-  { key: 'pazar', label: 'Pazar', defaultVisible: false },
+  { key: 'date', label: 'Date', defaultVisible: false }, // KAPALI
+  { key: 'domain', label: 'Domain', defaultVisible: true }, // AÇIK
+  { key: 'niche', label: 'Niche', defaultVisible: false }, // KAPALI
+  { key: 'ciro', label: 'Ciro', defaultVisible: true }, // AÇIK
+  { key: 'trafik', label: 'Trafik', defaultVisible: false }, // KAPALI
+  { key: 'product_count', label: 'Ürün Sayısı', defaultVisible: false }, // KAPALI
+  { key: 'app', label: 'App', defaultVisible: false }, // KAPALI
+  { key: 'theme', label: 'Theme', defaultVisible: false }, // KAPALI
+  { key: 'adlink', label: 'Ad Link', defaultVisible: true }, // AÇIK
+  { key: 'Currency', label: 'Currency', defaultVisible: false }, // KAPALI
+  { key: 'language', label: 'Language', defaultVisible: false }, // KAPALI
+  { key: 'Durum', label: 'Status', defaultVisible: false },    // KAPALI
+  { key: 'title', label: 'Product Title', defaultVisible: true }, // AÇIK
+  { key: 'images', label: 'Products', defaultVisible: true }, // AÇIK
+  { key: 'inceleyen', label: 'İnceleyen', defaultVisible: true }, // AÇIK
+  { key: 'listedurum', label: 'Listelensin mi?', defaultVisible: true }, // AÇIK
+  { key: 'pazar', label: 'Pazar', defaultVisible: false }, // KAPALI
 ];
+// === DEĞİŞİKLİK 1 SONU ===
 
 interface DataTableProps {
   data: ScrapedData[];
@@ -550,8 +547,11 @@ const DataTable = memo(({
 
       {!isLoading && (
         <>
+          {/* === DEĞİŞİKLİK 2: Ekrana Sığdırma (Scroll Yok) === */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[2000px]">
+            {/* min-w-[2000px] kaldırıldı */}
+            <table className="w-full">
+            {/* === DEĞİŞİKLİK 2 SONU === */}
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   {visibleColumns.includes('date') && <th className={thCell}>Date</th>}
@@ -740,16 +740,15 @@ function App() {
     if (filterLanguage) pageQuery = pageQuery.ilike('language', `%${filterLanguage}%`);
     if (filterTitle) pageQuery = pageQuery.ilike('title', `%${filterTitle}%`); 
     
-    // === DEĞİŞİKLİK 3: listedurum filtresi artık null'ı da aramalı mı? ===
-    // 'all' tümünü getirir (null, true, false)
-    // 'true' sadece true olanları
-    // 'false' sadece false olanları
-    // NOT: Kullanıcı "boş" olanları filtrelemek isterse buraya 'null' seçeneği eklenebilir,
-    // ancak şimdilik filtre (Tüm/Evet/Hayır) istendiği gibi bırakıldı.
+    // 'listedurum' filtresi (null/boş olanları da 'false' gibi mi ele almalı?)
     if (filterListedurum !== 'all') {
-      pageQuery = pageQuery.eq('listedurum', filterListedurum === 'true');
+      if (filterListedurum === 'true') {
+        pageQuery = pageQuery.eq('listedurum', true);
+      } else {
+        // 'false' seçildiğinde hem 'false' hem de 'null' (boş) olanları getirir
+        pageQuery = pageQuery.or('listedurum.is.false,listedurum.is.null');
+      }
     }
-    // === DEĞİŞİKLİK 3 SONU ===
     
     if (filterNiche) pageQuery = pageQuery.ilike('niche', `%${filterNiche}%`);
     if (filterCiro) pageQuery = pageQuery.ilike('ciro', `%${filterCiro}%`);
@@ -791,7 +790,11 @@ function App() {
     if (filterLanguage) allDataQuery = allDataQuery.ilike('language', `%${filterLanguage}%`);
     if (filterTitle) allDataQuery = allDataQuery.ilike('title', `%${filterTitle}%`); 
     if (filterListedurum !== 'all') {
-      allDataQuery = allDataQuery.eq('listedurum', filterListedurum === 'true');
+       if (filterListedurum === 'true') {
+        allDataQuery = allDataQuery.eq('listedurum', true);
+      } else {
+        allDataQuery = allDataQuery.or('listedurum.is.false,listedurum.is.null');
+      }
     }
     if (filterNiche) allDataQuery = allDataQuery.ilike('niche', `%${filterNiche}%`);
     if (filterCiro) allDataQuery = allDataQuery.ilike('ciro', `%${filterCiro}%`);
@@ -831,10 +834,12 @@ function App() {
         { event: '*', schema: 'public', table: 'scraped_data' }, 
         (payload) => {
           console.log('Veri değişikliği algılandı, grid yenileniyor:', payload);
-          // Eğer değişiklik yapan biz değilsek veya iyimser güncelleme
-          // başarısız olduysa veriyi yeniden yükle
-          // Şimdilik basitçe yeniliyoruz:
-          loadGridData(currentPage);
+          // Sadece 'UPDATE' olaylarında veriyi yeniden yükle
+          // (CSV yüklemesi 'INSERT' yapar)
+          // Grid'deki dropdown'ı değiştirmek 'UPDATE' yapar
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+             loadGridData(currentPage);
+          }
         }
       )
       .subscribe();
@@ -865,7 +870,7 @@ function App() {
   // Sayfa değiştiğinde veri yükle
   useEffect(() => {
     loadGridData(currentPage);
-  }, [currentPage, loadGridData]);
+  }, [currentPage]); // loadGridData'yı bağımlılıktan çıkardık (sonsuz döngü riskini azaltmak için)
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
