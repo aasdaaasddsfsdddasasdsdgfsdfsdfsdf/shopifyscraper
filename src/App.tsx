@@ -3,7 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import { 
   Database, UserCheck, Loader2, 
   ChevronLeft, ChevronRight, Search, Filter, 
-  ExternalLink, Settings2, X 
+  ExternalLink, Settings2, X,
+  CheckSquare, // İkonlar eklendi
+  DollarSign, 
+  Euro, 
+  Briefcase 
 } from 'lucide-react';
 
 // =================================================================================
@@ -45,6 +49,15 @@ export interface ScrapedData {
   pazar: string | null;
 }
 
+// === DEĞİŞİKLİK 1: Veri Kartları için yeni arayüz ===
+interface StatsData {
+  toplam: number;
+  tr: number;
+  usd: number;
+  eu: number;
+}
+// === DEĞİŞİKLİK 1 SONU ===
+
 // =================================================================================
 // 2. EXPORT FONKSİYONLARI (KODDA KULLANILMIYOR AMA SİLİNMEDİ)
 // =================================================================================
@@ -73,80 +86,50 @@ function downloadFile(content: string, filename: string, mimeType: string): void
 // ... exportToCSV ve exportToJSON fonksiyonları (değişiklik yok) ...
 export function exportToCSV(data: ScrapedData[]): void {
   if (data.length === 0) return;
-
   const headers = [
     'date', 'domain', 'niche', 'ciro', 'trafik', 'product_count', 'app', 
     'theme', 'adlink', 'Currency', 'language', 'Durum', 'title', 
     'image1', 'image2', 'image3', 'product_error', 'listedurum', 'inceleyen', 'pazar'
   ];
   const csvRows = [headers.join(',')];
-
   for (const row of data) {
     const values = [
-      row.date,
-      escapeCSV(row.domain),
-      escapeCSV(row.niche),
-      escapeCSV(row.ciro),
-      escapeCSV(row.trafik),
-      escapeCSV(row.product_count),
-      escapeCSV(row.app),
-      escapeCSV(row.theme),
-      escapeCSV(row.adlink),
-      escapeCSV(row["Currency"]), 
-      escapeCSV(row.language),
-      escapeCSV(row["Durum"]),    
-      escapeCSV(row.title),      
-      escapeCSV(row.image1),     
-      escapeCSV(row.image2),     
-      escapeCSV(row.image3),     
-      escapeCSV(row.product_error),
-      String(row.listedurum), // "true", "false", veya "null"
-      escapeCSV(row.inceleyen),
+      row.date, escapeCSV(row.domain), escapeCSV(row.niche), escapeCSV(row.ciro),
+      escapeCSV(row.trafik), escapeCSV(row.product_count), escapeCSV(row.app),
+      escapeCSV(row.theme), escapeCSV(row.adlink), escapeCSV(row["Currency"]), 
+      escapeCSV(row.language), escapeCSV(row["Durum"]), escapeCSV(row.title),      
+      escapeCSV(row.image1), escapeCSV(row.image2), escapeCSV(row.image3),     
+      escapeCSV(row.product_error), String(row.listedurum), escapeCSV(row.inceleyen),
       escapeCSV(row.pazar),
     ];
     csvRows.push(values.join(','));
   }
-
   const csvContent = csvRows.join('\n');
   downloadFile(csvContent, 'scraped-data.csv', 'text/csv');
 }
 
 export function exportToJSON(data: ScrapedData[]): void {
   const jsonData = data.map(row => ({
-    date: row.date,
-    domain: row.domain,
-    niche: row.niche,
-    ciro: row.ciro,
-    trafik: row.trafik,
-    product_count: row.product_count,
-    app: row.app,
-    theme: row.theme,
-    adlink: row.adlink,
-    Currency: row["Currency"], 
-    language: row.language,
-    listedurum: row.listedurum,
-    inceleyen: row.inceleyen,
-    status: row["Durum"],      
-    title: row.title,          
-    image1: row.image1,        
-    image2: row.image2,        
-    image3: row.image3,        
-    product_error: row.product_error,
+    date: row.date, domain: row.domain, niche: row.niche, ciro: row.ciro,
+    trafik: row.trafik, product_count: row.product_count, app: row.app,
+    theme: row.theme, adlink: row.adlink, Currency: row["Currency"], 
+    language: row.language, listedurum: row.listedurum, inceleyen: row.inceleyen,
+    status: row["Durum"], title: row.title, image1: row.image1,        
+    image2: row.image2, image3: row.image3, product_error: row.product_error,
     pazar: row.pazar,
   }));
-
   const jsonContent = JSON.stringify(jsonData, null, 2);
   downloadFile(jsonContent, 'scraped-data.json', 'application/json');
 }
 
 // =================================================================================
-// 4. BİLEŞENLER (COMPONENTS)
+// 3. YARDIMCI BİLEŞENLER (COMPONENTS)
 // =================================================================================
 
 // --- ListingDropdown Bileşeni (Değişiklik yok) ---
 interface ListingDropdownProps {
   rowId: string;
-  initialValue: boolean | null; // Artık null olabilir
+  initialValue: boolean | null;
   currentUser: string;
 }
 const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropdownProps) => {
@@ -157,21 +140,20 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropd
     setCurrentValue(initialValue); 
   }, [initialValue]);
 
-  // boolean (true/false) veya null değeri string ("true", "false", "unset") değere çevirir
   const getValueAsString = (val: boolean | null): string => {
     if (val === true) return "true";
     if (val === false) return "false";
-    return "unset"; // "unset" string'i 'null' (boş) durumu temsil eder
+    return "unset"; 
   };
   
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (!currentUser) { 
       alert('Lütfen işlem yapmadan önce "İnceleyen Kişi" seçimi yapın.'); 
-      e.target.value = getValueAsString(currentValue); // Seçimi eski haline getir
+      e.target.value = getValueAsString(currentValue); 
       return; 
     }
     
-    const newValueString = e.target.value; // "true", "false", veya "unset"
+    const newValueString = e.target.value; 
     
     let newValue: boolean | null;
     if (newValueString === "true") {
@@ -179,11 +161,11 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropd
     } else if (newValueString === "false") {
       newValue = false;
     } else {
-      newValue = null; // "unset" (Seçim Yapın) seçeneği DB'ye 'null' olarak gider
+      newValue = null; 
     }
 
     setIsLoading(true);
-    setCurrentValue(newValue); // Optimistic update
+    setCurrentValue(newValue); 
 
     const { error } = await supabase
       .from('scraped_data')
@@ -195,7 +177,7 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropd
       
     if (error) { 
       console.error('Update error:', error); 
-      setCurrentValue(initialValue); // Hata durumunda eski değere dön
+      setCurrentValue(initialValue); 
       alert(`Hata: ${error.message}`); 
     }
     setIsLoading(false);
@@ -207,7 +189,7 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropd
     <div className="flex items-center justify-center">
       {isLoading ? (<Loader2 className="w-4 h-4 animate-spin text-blue-500" />) : (
         <select
-          value={selectValue} // "true", "false", veya "unset"
+          value={selectValue} 
           onChange={handleChange}
           disabled={!currentUser}
           className={`w-28 px-2 py-1 border rounded-md text-sm font-medium ${
@@ -246,30 +228,91 @@ const ImageModal = memo(({ imageUrl, onClose }: ImageModalProps) => {
   );
 });
 
+// --- DEĞİŞİKLİK 2: Veri Kartları (Stats) Bileşeni Eklendi ---
+interface StatsCardProps {
+  title: string;
+  value: number;
+  icon: React.ElementType;
+  color: string;
+  isLoading: boolean;
+}
 
-// --- DataTable Bileşeni (GÜNCELLENDİ) ---
+const StatsCard = ({ title, value, icon: Icon, color, isLoading }: StatsCardProps) => (
+  <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex items-center gap-4">
+    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${color}`}>
+      <Icon className="w-6 h-6 text-white" />
+    </div>
+    <div>
+      <div className="text-sm font-medium text-gray-500">{title}</div>
+      {isLoading ? (
+        <Loader2 className="w-6 h-6 animate-spin text-gray-400 mt-1" />
+      ) : (
+        <div className="text-2xl font-bold text-gray-900">{value.toLocaleString()}</div>
+      )}
+    </div>
+  </div>
+);
 
-// === DEĞİŞİKLİK 1: Varsayılan Sütun Görünürlüğü Güncellendi ===
+interface StatsCardsProps {
+  stats: StatsData | null;
+  isLoading: boolean;
+}
+
+const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
+  <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+    <StatsCard
+      title="Toplam İnceleme"
+      value={stats?.toplam ?? 0}
+      icon={CheckSquare}
+      color="bg-blue-500"
+      isLoading={isLoading}
+    />
+    <StatsCard
+      title="TR Pazarı (TRY)"
+      value={stats?.tr ?? 0}
+      icon={Briefcase} // Lira ikonu yok, jenerik bir ikon
+      color="bg-red-500"
+      isLoading={isLoading}
+    />
+    <StatsCard
+      title="USD Pazarı"
+      value={stats?.usd ?? 0}
+      icon={DollarSign}
+      color="bg-green-500"
+      isLoading={isLoading}
+    />
+    <StatsCard
+      title="EU Pazarı (EUR)"
+      value={stats?.eu ?? 0}
+      icon={Euro}
+      color="bg-yellow-500"
+      isLoading={isLoading}
+    />
+  </div>
+);
+// --- DEĞİŞİKLİK 2 SONU ---
+
+
+// --- DataTable Bileşeni (Varsayılan Sütunlar ve Ekrana Sığdırma Güncellendi) ---
 const ALL_COLUMNS = [
-  { key: 'date', label: 'Date', defaultVisible: false }, // KAPALI
-  { key: 'domain', label: 'Domain', defaultVisible: true }, // AÇIK
-  { key: 'niche', label: 'Niche', defaultVisible: false }, // KAPALI
-  { key: 'ciro', label: 'Ciro', defaultVisible: true }, // AÇIK
-  { key: 'trafik', label: 'Trafik', defaultVisible: false }, // KAPALI
-  { key: 'product_count', label: 'Ürün Sayısı', defaultVisible: false }, // KAPALI
-  { key: 'app', label: 'App', defaultVisible: false }, // KAPALI
-  { key: 'theme', label: 'Theme', defaultVisible: false }, // KAPALI
-  { key: 'adlink', label: 'Ad Link', defaultVisible: true }, // AÇIK
-  { key: 'Currency', label: 'Currency', defaultVisible: false }, // KAPALI
-  { key: 'language', label: 'Language', defaultVisible: false }, // KAPALI
-  { key: 'Durum', label: 'Status', defaultVisible: false },    // KAPALI
-  { key: 'title', label: 'Product Title', defaultVisible: true }, // AÇIK
-  { key: 'images', label: 'Products', defaultVisible: true }, // AÇIK
-  { key: 'inceleyen', label: 'İnceleyen', defaultVisible: true }, // AÇIK
-  { key: 'listedurum', label: 'Listelensin mi?', defaultVisible: true }, // AÇIK
-  { key: 'pazar', label: 'Pazar', defaultVisible: false }, // KAPALI
+  { key: 'date', label: 'Date', defaultVisible: false },
+  { key: 'domain', label: 'Domain', defaultVisible: true },
+  { key: 'niche', label: 'Niche', defaultVisible: false },
+  { key: 'ciro', label: 'Ciro', defaultVisible: true },
+  { key: 'trafik', label: 'Trafik', defaultVisible: false },
+  { key: 'product_count', label: 'Ürün Sayısı', defaultVisible: false },
+  { key: 'app', label: 'App', defaultVisible: false },
+  { key: 'theme', label: 'Theme', defaultVisible: false },
+  { key: 'adlink', label: 'Ad Link', defaultVisible: true },
+  { key: 'Currency', label: 'Currency', defaultVisible: false },
+  { key: 'language', label: 'Language', defaultVisible: false },
+  { key: 'Durum', label: 'Status', defaultVisible: false },
+  { key: 'title', label: 'Product Title', defaultVisible: true },
+  { key: 'images', label: 'Products', defaultVisible: true },
+  { key: 'inceleyen', label: 'İnceleyen', defaultVisible: true },
+  { key: 'listedurum', label: 'Listelensin mi?', defaultVisible: true },
+  { key: 'pazar', label: 'Pazar', defaultVisible: false },
 ];
-// === DEĞİŞİKLİK 1 SONU ===
 
 interface DataTableProps {
   data: ScrapedData[];
@@ -547,11 +590,11 @@ const DataTable = memo(({
 
       {!isLoading && (
         <>
-          {/* === DEĞİŞİKLİK 2: Ekrana Sığdırma (Scroll Yok) === */}
+          {/* === Ekrana Sığdırma (Scroll Yok) === */}
           <div className="overflow-x-auto">
-            {/* min-w-[2000px] kaldırıldı */}
+            {/* min-w-[...] kaldırıldı */}
             <table className="w-full">
-            {/* === DEĞİŞİKLİK 2 SONU === */}
+            {/* === Ekrana Sığdırma SONU === */}
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   {visibleColumns.includes('date') && <th className={thCell}>Date</th>}
@@ -706,6 +749,11 @@ function App() {
   const [totalRecords, setTotalRecords] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
+  // === DEĞİŞİKLİK 3: İstatistikler için state eklendi ===
+  const [statsData, setStatsData] = useState<StatsData | null>(null);
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
+  // === DEĞİŞİKLİK 3 SONU ===
+
   // --- Filtre State'leri (Değişiklik yok) ---
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDomain, setFilterDomain] = useState('');
@@ -724,7 +772,35 @@ function App() {
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
-  // --- Veri Yükleme Fonksiyonu (GÜNCELLENDİ) ---
+  // --- DEĞİŞİKLİK 4: İstatistikleri yüklemek için ayrı fonksiyon ---
+  const loadStatsData = useCallback(async () => {
+    setIsStatsLoading(true);
+    try {
+      // head: true sadece count'u alır, datayı çekmez (daha hızlı)
+      const toplamQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).eq('listedurum', true);
+      const trQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).eq('listedurum', true).eq('"Currency"', 'TRY');
+      const usdQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).eq('listedurum', true).eq('"Currency"', 'USD');
+      const euQuery = supabase.from('scraped_data').select('id', { count: 'exact', head: true }).eq('listedurum', true).eq('"Currency"', 'EUR');
+
+      // 4 sorguyu aynı anda çalıştır
+      const [toplamRes, trRes, usdRes, euRes] = await Promise.all([toplamQuery, trQuery, usdQuery, euQuery]);
+
+      setStatsData({
+        toplam: toplamRes.count || 0,
+        tr: trRes.count || 0,
+        usd: usdRes.count || 0,
+        eu: euRes.count || 0,
+      });
+    } catch (error) {
+      console.error("Error loading stats data:", error);
+      setStatsData(null); // Hata durumunda state'i sıfırla
+    }
+    setIsStatsLoading(false);
+  }, []); // Bu fonksiyonun filtre bağımlılığı YOKTUR
+  // --- DEĞİŞİKLİK 4 SONU ---
+
+
+  // --- Veri Yükleme Fonksiyonu (Filtreler için) ---
   const loadGridData = useCallback(async (page: number) => {
     setIsLoading(true);
     const offset = (page - 1) * ITEMS_PER_PAGE;
@@ -733,19 +809,17 @@ function App() {
       .from('scraped_data')
       .select('*', { count: 'exact' }); 
 
-    // --- GÜNCELLENDİ: Filtreler yeni sütun adlarına göre ---
+    // Filtreler...
     if (filterDomain) pageQuery = pageQuery.ilike('domain', `%${filterDomain}%`);
     if (filterStatus !== 'all') pageQuery = pageQuery.eq('"Durum"', filterStatus); 
     if (filterCurrency) pageQuery = pageQuery.ilike('"Currency"', `%${filterCurrency}%`); 
     if (filterLanguage) pageQuery = pageQuery.ilike('language', `%${filterLanguage}%`);
     if (filterTitle) pageQuery = pageQuery.ilike('title', `%${filterTitle}%`); 
     
-    // 'listedurum' filtresi (null/boş olanları da 'false' gibi mi ele almalı?)
     if (filterListedurum !== 'all') {
       if (filterListedurum === 'true') {
         pageQuery = pageQuery.eq('listedurum', true);
       } else {
-        // 'false' seçildiğinde hem 'false' hem de 'null' (boş) olanları getirir
         pageQuery = pageQuery.or('listedurum.is.false,listedurum.is.null');
       }
     }
@@ -779,7 +853,7 @@ function App() {
       setTotalRecords(count || 0);
     }
 
-    // --- Dışa Aktarım Sorgusu (GÜNCELLENDİ) ---
+    // --- Dışa Aktarım Sorgusu (Kaldırıldı ama allData state'i lazım olabilir diye duruyor) ---
     let allDataQuery = supabase
       .from('scraped_data')
       .select('*');
@@ -833,12 +907,11 @@ function App() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'scraped_data' }, 
         (payload) => {
-          console.log('Veri değişikliği algılandı, grid yenileniyor:', payload);
-          // Sadece 'UPDATE' olaylarında veriyi yeniden yükle
-          // (CSV yüklemesi 'INSERT' yapar)
-          // Grid'deki dropdown'ı değiştirmek 'UPDATE' yapar
+          console.log('Veri değişikliği algılandı, grid ve statlar yenileniyor:', payload);
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+             // Hem grid'i (mevcut sayfa) hem de istatistikleri (tüm data) yenile
              loadGridData(currentPage);
+             loadStatsData(); 
           }
         }
       )
@@ -847,12 +920,14 @@ function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadGridData, currentPage]);
+  }, [loadGridData, currentPage, loadStatsData]); // loadStatsData eklendi
   
   
+  // İlk yükleme
   useEffect(() => {
     loadGridData(1);
-  }, [loadGridData]);
+    loadStatsData(); // İstatistikleri de ilk yüklemede çek
+  }, [loadGridData, loadStatsData]); // Bağımlılıklara eklendi
 
   
   // Filtreler değiştiğinde sayfayı sıfırla
@@ -870,7 +945,7 @@ function App() {
   // Sayfa değiştiğinde veri yükle
   useEffect(() => {
     loadGridData(currentPage);
-  }, [currentPage]); // loadGridData'yı bağımlılıktan çıkardık (sonsuz döngü riskini azaltmak için)
+  }, [currentPage, loadGridData]); // loadGridData'yı geri ekledim (useCallback kullandığımız için güvenli)
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
@@ -913,6 +988,10 @@ function App() {
             Veri filtreleme ve yönetme arayüzü
           </p>
         </div>
+
+        {/* === DEĞİŞİKLİK 5: Veri Kartları Buraya Render Edilir === */}
+        <StatsCards stats={statsData} isLoading={isStatsLoading} />
+        {/* === DEĞİŞİKLİK 5 SONU === */}
 
         {userSelector}
 
