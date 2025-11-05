@@ -291,7 +291,6 @@ function App() {
         <div className="mb-8 flex flex-col items-center">
           <div className="flex items-center gap-3 mb-8">
             <Database className="w-10 h-10 text-blue-500" />
-            <h1 className="text-4xl font-bold text-white">Roasell Ürün Galerisi</h1>
           </div>
 
           <div className="flex gap-3 bg-gray-800 p-2 rounded-xl border border-gray-700 mb-8">
