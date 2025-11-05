@@ -133,23 +133,35 @@ export function exportToJSON(data: ScrapedData[]): void {
 // 3. YARDIMCI BİLEŞENLER (COMPONENTS)
 // =================================================================================
 
-// --- ListingDropdown Bileşeni (GÜNCELLENDİ: Optimistic Locking) ---
+// --- ListingDropdown Bileşeni (GÜNCELLENDİ: Optimistic Locking & UI) ---
 interface ListingDropdownProps {
   rowId: string;
   initialValue: boolean | null;
   currentUser: string;
-  initialInceleyen: string | null; // <<< DEĞİŞİKLİK 1: EKLENDİ
+  initialInceleyen: string | null; 
+  // <<< DEĞİŞİKLİK 1: Optimistic UI için callback eklendi
+  onOptimisticUpdate: (rowId: string, newListedurum: boolean | null, newInceleyen: string | null) => void;
 }
 
-// <<< DEĞİŞİKLİK 1: initialInceleyen prop'u eklendi
-const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceleyen }: ListingDropdownProps) => {
+// <<< DEĞİŞİKLİK 1: onOptimisticUpdate prop'u eklendi
+const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceleyen, onOptimisticUpdate }: ListingDropdownProps) => {
   const [currentValue, setCurrentValue] = useState(initialValue);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Supabase Realtime'dan gelen değişiklikleri yakalamak için
+  // Supabase Realtime'dan (veya optimistic update'ten) gelen değişiklikleri yakala
   useEffect(() => { 
     setCurrentValue(initialValue); 
   }, [initialValue]);
+  
+  // initialInceleyen değişikliğini de izle (gerekli, çünkü optimistic update bunu da etkiler)
+  // Bu useEffect'i kaldırmak UI'ın anlık güncellemesini sağlar, 
+  // çünkü artık `data` state'i anlık güncelleniyor.
+  // useEffect(() => { 
+  //   setOptimisticInceleyen(initialInceleyen); 
+  // }, [initialInceleyen]);
+  // *Düzeltme*: Sadece `currentValue` (listedurum) için state yeterli. 
+  // `inceleyen` state'i burada tutulmamalı, çünkü `DataTable` zaten
+  // `data` prop'undan anlık olarak güncellenmiş `row.inceleyen`'i alacak.
 
   const getValueAsString = (val: boolean | null): string => {
     if (val === true) return "true";
@@ -157,7 +169,7 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceley
     return "unset"; 
   };
   
-  // <<< DEĞİŞİKLİK 2: handleChange fonksiyonu Optimistic Locking için güncellendi
+  // <<< DEĞİŞİKLİK 2: handleChange fonksiyonu Optimistic UI callback'ini çağıracak şekilde güncellendi
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (!currentUser) { 
       alert('Lütfen işlem yapmadan önce "İnceleyen Kişi" seçimi yapın.'); 
@@ -177,14 +189,19 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceley
     }
 
     setIsLoading(true);
-    setCurrentValue(newValue); // Optimistic UI (Arayüzü hemen güncelle)
+    setCurrentValue(newValue); // Optimistic UI (Dropdown'ı hemen güncelle)
 
     const isUnassigning = newValue === null; // Kullanıcı "Seçim Yapın" mı dedi?
+    const newInceleyen = isUnassigning ? null : currentUser;
+
+    // <<< DEĞİŞİKLİK 3: Optimistic UI için parent'ı (App state) bilgilendir >>>
+    // Bu, `inceleyen` sütunu da dahil olmak üzere tüm satırın UI'da anlık güncellenmesini sağlar.
+    onOptimisticUpdate(rowId, newValue, newInceleyen);
 
     // Veritabanı güncelleme objesi
     const updateObject = { 
       listedurum: newValue, 
-      inceleyen: isUnassigning ? null : currentUser // Evet/Hayır ise 'currentUser' yap, değilse 'null' yap
+      inceleyen: newInceleyen
     };
 
     // Başlangıç query'si
@@ -194,68 +211,40 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceley
       .eq('id', rowId);
 
     // --- OPTIMISTIC LOCKING KOŞULU ---
-    // Güncellemeyi SADECE 'inceleyen' alanı bizim gördüğümüz (initialInceleyen)
-    // değerle aynıysa yap.
     if (initialInceleyen === null) {
       // Eğer biz bu kaydı 'boşta' (null) gördüysek, sadece hala 'boşta' ise güncelle.
       updateQuery = updateQuery.is('inceleyen', null);
     } else {
       // Eğer biz bu kaydı 'dolu' (örn: 'Mert') gördüysek, sadece hala 'Mert'e aitse güncelle.
-      // Bu, 'Mert'in kendi seçimini (Evet/Hayır/Seçim Yapın) değiştirmesine izin verir.
-      // Bu, 'Efkan'ın 'Mert'in seçimini çalmasına da izin verir *EĞER* 'Efkan'ın amacı buysa.
-      // *DÜZELTME*: Bu mantık, 'Mert'in kaydını 'Efkan'ın çalmasına izin veriyor.
-      // Orijinal sorununuz olan "iki kişi aynı anda NULL'a basmasın" için SADECE NULL kontrolü yeterli.
-      
-      // *İKİNCİ DÜZELTME*: En doğru mantık şudur:
-      // 1. Kaydı SAHİPLENİYORSAM (boştan alıyorsam): Sadece 'null' ise al.
-      // 2. Kaydı DÜZENLİYORSAM (zaten bana aitse): Sadece 'bana' aitse düzenle.
-      // 3. Kaydı BOŞA ÇIKARIYORSAM (Seçim Yapın): Sadece 'bana' aitse boşa çıkar.
-      // 4. BAŞKASININ kaydını almaya ÇALIŞIYORSAM: Bu kilitli olmalı.
-      
-      // Tekrar basitleştirelim: Sorgu, *sadece* gördüğümüz duruma (initialInceleyen) eşitse çalışsın.
       updateQuery = updateQuery.eq('inceleyen', initialInceleyen);
     }
     
-    // YENİDEN DÜŞÜNÜLDÜ: En sağlam mantık budur:
-    // Eğer 'initialInceleyen' null ise, sadece 'inceleyen' null ise güncelle (İlk gelen alır).
-    // Eğer 'initialInceleyen' null değilse (doluysa), SADECE 'initialInceleyen' == 'currentUser' ise güncelle.
-    // Bu, başkasının işini çalmayı engeller.
-    // AMA siz 'Evet' veya 'Hayır' seçildiğinde 'inceleyen' güncellensin dediniz. Bu "çalmaya" izin verir.
-    
-    // SON KARAR (Önceki cevaptaki gibi, yarış koşulunu engelleyen):
-    let finalQuery = supabase
-      .from('scraped_data')
-      .update(updateObject, { count: 'exact' })
-      .eq('id', rowId);
-
-    if (initialInceleyen === null) {
-      // Sadece boştaysa al (İlk gelen kazanır)
-      finalQuery = finalQuery.is('inceleyen', null);
-    } else {
-      // Zaten doluysa (initialInceleyen = 'Mert' diyelim),
-      // ve ben (currentUser = 'Efkan') bunu değiştirmeye çalışıyorsam (newValue = true),
-      // updateObject { inceleyen: 'Efkan' } olacak.
-      // Koşul: Sadece 'inceleyen' hala 'Mert' ise yap.
-      finalQuery = finalQuery.eq('inceleyen', initialInceleyen);
-    }
-    
     // Query'yi çalıştır ve 'count' (etkilenen satır sayısı) bilgisini al
-    const { error, count } = await finalQuery;
+    const { error, count } = await updateQuery;
       
     if (error) { 
       console.error('Update error:', error); 
-      setCurrentValue(initialValue); // Hata varsa UI'ı geri al
+      // <<< DEĞİŞİKLİK 4: Hata durumunda Optimistic UI'ı geri al >>>
+      onOptimisticUpdate(rowId, initialValue, initialInceleyen);
+      setCurrentValue(initialValue); // Dropdown'ı geri al
       alert(`Hata: ${error.message}`); 
     } else if (count === 0 && !error) {
-      // Hata yok AMA count = 0 ise,
-      // bu, 'where' koşulumuzun (optimistic lock) başarısız olduğu anlamına gelir.
-      // Başka bir kullanıcı bizden önce davrandı.
+      // Hata yok AMA count = 0 ise, optimistic lock başarısız oldu.
       console.warn('Update failed: Optimistic lock violation.');
-      setCurrentValue(initialValue); // UI'ı geri al
-      // Kullanıcıyı bilgilendir, Realtime zaten güncel veriyi (diğer kullanıcının seçimini) getirecek.
+      
+      // <<< DEĞİŞİKLİK 5: Kilitlenme durumunda Optimistic UI'ı geri al >>>
+      // Not: Realtime zaten sunucudaki güncel veriyi getireceği için 
+      // buradaki geri alma işlemi kullanıcıya anlık bir "flicker" yaşatabilir,
+      // ama en doğru (consistent) davranıştır.
+      // Alternatif olarak, sadece alert verip Realtime'ın güncellemesini beklenebilir.
+      // Şimdilik en güvenli yolu (geri almayı) seçelim.
+      onOptimisticUpdate(rowId, initialValue, initialInceleyen);
+      setCurrentValue(initialValue); // Dropdown'ı geri al
+      
       alert('Hata: Bu kaydın durumu siz işlem yapmadan önce başka bir kullanıcı tarafından değiştirildi. Sayfa güncelleniyor.');
     }
-    // Başarılıysa (count > 0), hiçbir şey yapma, Supabase Realtime zaten değişikliği yayacak.
+    // Başarılıysa (count > 0), hiçbir şey yapma, Realtime değişikliği yayacak 
+    // (veya bizim optimistic UI'ımız zaten doğru durumu gösteriyor).
     setIsLoading(false);
   };
 
@@ -305,14 +294,14 @@ const ImageModal = memo(({ imageUrl, onClose }: ImageModalProps) => {
   );
 });
 
-// === DEĞİŞİKLİK 3: StatsCard component'i valuePrefix prop'u alacak şekilde güncellendi ===
+// --- StatsCard component (Değişiklik yok) ---
 interface StatsCardProps {
   title: string;
   value: number;
   icon: React.ElementType;
   color: string;
   isLoading: boolean;
-  valuePrefix?: string; // <<< EKLENDİ
+  valuePrefix?: string; 
 }
 
 const StatsCard = ({ title, value, icon: Icon, color, isLoading, valuePrefix }: StatsCardProps) => (
@@ -325,7 +314,6 @@ const StatsCard = ({ title, value, icon: Icon, color, isLoading, valuePrefix }: 
       {isLoading ? (
         <Loader2 className="w-6 h-6 animate-spin text-gray-400 mt-1" />
       ) : (
-        // <<< DEĞİŞİKLİK: ValuePrefix eklendi
         <div className="text-2xl font-bold text-gray-900">{valuePrefix}{value.toLocaleString()}</div> 
       )}
     </div>
@@ -346,33 +334,32 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
       color="bg-blue-500"
       isLoading={isLoading}
     />
-    {/* <<< DEĞİŞİKLİK: valuePrefix="₺" eklendi */}
     <StatsCard
       title="TR Pazarı"
       value={stats?.tr ?? 0}
       icon={Briefcase}
       color="bg-red-500"
       isLoading={isLoading}
+      valuePrefix="₺"
     />
-    {/* <<< DEĞİŞİKLİK: valuePrefix="$" eklendi */}
     <StatsCard
       title="USD Pazarı"
       value={stats?.usd ?? 0}
       icon={DollarSign}
       color="bg-green-500"
       isLoading={isLoading}
+      valuePrefix="$"
     />
-    {/* <<< DEĞİŞİKLİK: valuePrefix="€" eklendi */}
     <StatsCard
       title="EU Pazarı (EUR)"
       value={stats?.eu ?? 0}
       icon={Euro}
       color="bg-yellow-500"
       isLoading={isLoading}
+      valuePrefix="€"
     />
   </div>
 );
-// === DEĞİŞİKLİK 3 SONU ===
 
 
 // --- DataTable Bileşeni (Varsayılan Sütunlar ve Ekrana Sığdırma Güncellendi) ---
@@ -410,6 +397,9 @@ interface DataTableProps {
   reviewerStats: ReviewerStat[];
   isStatsLoading: boolean; 
   
+  // <<< DEĞİŞİKLİK 6: Optimistic UI callback'i eklendi
+  onOptimisticUpdate: (rowId: string, newListedurum: boolean | null, newInceleyen: string | null) => void;
+
   // Filtreler ve Setter'ları
   searchTerm: string;
   setSearchTerm: (value: string) => void;
@@ -452,6 +442,8 @@ const DataTable = memo(({
   setCurrentUser,
   reviewerStats,
   isStatsLoading,
+  // <<< DEĞİŞİKLİK 7: onOptimisticUpdate prop'u eklendi
+  onOptimisticUpdate, 
   ...filterProps 
 }: DataTableProps) => {
   
@@ -536,7 +528,7 @@ const DataTable = memo(({
     );
   };
 
-  // --- filterControls GÜNCELLENDİ (İnceleyen Seçimi Filtre Yanına Taşındı) ---
+  // --- filterControls (Değişiklik yok) ---
   const filterControls = (
     <div className="p-4 border-b border-gray-200">
       <div className="flex justify-between items-center mb-4">
@@ -581,7 +573,6 @@ const DataTable = memo(({
               </div>
             )}
           </div>
-          {/* Export Butonları KALDIRILDI */}
         </div>
       </div>
       
@@ -638,7 +629,6 @@ const DataTable = memo(({
           Filtreleri Temizle
         </button>
         
-        {/* === DEĞİŞİKLİK 4: İnceleyen Kişi Seçimi (Sayılarla Birlikte) Buraya Taşındı === */}
         <select
           id="user-selector"
           value={currentUser}
@@ -653,7 +643,6 @@ const DataTable = memo(({
             </option>
           ))}
         </select>
-        {/* === DEĞİŞİKLİK 4 SONU === */}
       </div>
     </div>
   );
@@ -788,16 +777,18 @@ const DataTable = memo(({
                       </td>
                     )}
                     
+                    {/* <<< BU SÜTUN ARTIK ANINDA GÜNCELLENECEK >>> */}
                     {visibleColumns.includes('inceleyen') && <td className={`${tdCell} whitespace-nowrap`}>{row.inceleyen || '-'}</td>}
                     
                     {visibleColumns.includes('listedurum') && (
                       <td className={`${tdCell} text-center`}>
-                        {/* <<< DEĞİŞİKLİK 3: initialInceleyen prop'u eklendi */}
+                        {/* <<< DEĞİŞİKLİK 8: onOptimisticUpdate prop'u iletildi >>> */}
                         <ListingDropdown 
                           rowId={row.id} 
                           initialValue={row.listedurum} 
                           currentUser={currentUser}
                           initialInceleyen={row.inceleyen} 
+                          onOptimisticUpdate={onOptimisticUpdate}
                         />
                       </td>
                     )}
@@ -946,6 +937,7 @@ function App() {
         pageQuery = pageQuery.eq('listedurum', true);
       } else {
         // 'Hayır' (false) veya 'Seçim Yapın' (null) olanları getirir
+        // <<< GÜNCELLEME: Kullanıcı 'Hayır' seçtiyse, 'false' ve 'null' olanları getir.
         pageQuery = pageQuery.or('listedurum.is.false,listedurum.is.null');
       }
     }
@@ -1033,9 +1025,23 @@ function App() {
         { event: '*', schema: 'public', table: 'scraped_data' }, 
         (payload) => {
           console.log('Veri değişikliği algılandı, grid ve statlar yenileniyor:', payload);
-          // O anki sayfayı ve istatistikleri yeniden yükle
-          // Bu, başka bir kullanıcının yaptığı değişikliği anında yansıtır
-          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+          
+          // <<< DEĞİŞİKLİK 9: Optimistic UI'ın üzerine yazmaması için kontrol >>>
+          // Eğer değişiklik 'UPDATE' ise, payload.new'i kullanarak 
+          // `data` state'ini manuel güncelleyebiliriz.
+          // Bu, `loadGridData`'nın optimistic state'in üzerine yazmasını engeller.
+          
+          if (payload.eventType === 'UPDATE') {
+            const updatedRow = payload.new as ScrapedData;
+            setData(currentData => 
+              currentData.map(row => 
+                row.id === updatedRow.id ? updatedRow : row
+              )
+            );
+            // Sadece istatistikleri yeniden yükle, grid'i değil.
+            loadStatsData();
+          } else if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+             // Yeni kayıt veya silme varsa tam yükleme yap
              loadGridData(currentPage);
              loadStatsData(); 
           }
@@ -1061,31 +1067,36 @@ function App() {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-    // Filtreler değiştiğinde veri yüklemesi zaten 'loadGridData' bağımlılığı
-    // (useEffect [loadGridData]) tarafından tetikleniyor.
-    // Ancak, ilk yükleme için ve filtreler değiştiğinde
-    // 1. sayfayı yüklemek için 'loadGridData'yı burada çağırmak daha doğru.
     loadGridData(1); 
     loadStatsData(); // Filtreler değiştiğinde istatistikler de güncellenmeli.
     
   }, [
     searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, 
     filterTitle, filterListedurum, filterNiche, filterCiro, filterTrafik, 
-    filterProductCount, filterApp, filterTheme, filterInceleyen,
-    // loadGridData ve loadStatsData'yı buraya eklemeyin (sonsuz döngü)
+    filterProductCount, filterApp, filterTheme, filterInceleyen
   ]); 
 
   
   // Sayfa değiştiğinde veri yükle
   useEffect(() => {
     loadGridData(currentPage);
-  }, [currentPage]); // Sadece currentPage değiştiğinde tetiklenir
+  }, [currentPage, loadGridData]); // loadGridData bağımlılığı eklendi (önceki kodda eksikti, ama olmalı)
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
   }, []);
   
-  // "İnceleyen Kişi" kartı (Header'dan) kaldırıldı
+  // <<< DEĞİŞİKLİK 10: Optimistic UI için state güncelleme fonksiyonu >>>
+  const handleOptimisticUpdate = useCallback((rowId: string, newListedurum: boolean | null, newInceleyen: string | null) => {
+    setData(currentData => 
+      currentData.map(row => 
+        row.id === rowId 
+          // Sadece 'listedurum' ve 'inceleyen'i anlık güncelle
+          ? { ...row, listedurum: newListedurum, inceleyen: newInceleyen }
+          : row
+      )
+    );
+  }, []); // Boş bağımlılık dizisi, bu fonksiyonun referansının değişmemesini sağlar.
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -1101,6 +1112,7 @@ function App() {
         {/* Veri Kartları */}
         <StatsCards stats={statsData} isLoading={isStatsLoading} />
 
+        {/* <<< DEĞİŞİKLİK 11: handleOptimisticUpdate prop'u DataTable'a iletildi >>> */}
         <DataTable
           data={data}
           currentPage={currentPage}
@@ -1115,6 +1127,8 @@ function App() {
           reviewerStats={reviewerStats}
           isStatsLoading={isStatsLoading}
           reviewers={REVIEWERS}
+          
+          onOptimisticUpdate={handleOptimisticUpdate}
           
           // ... (Tüm filtre prop'ları) ...
           searchTerm={searchTerm} setSearchTerm={setSearchTerm}
