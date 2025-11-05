@@ -145,40 +145,77 @@ export function exportToJSON(data: ScrapedData[]): void {
 // 4. BİLEŞENLER (COMPONENTS)
 // =================================================================================
 
-// --- ListingCheckbox Bileşeni (Değişiklik yok) ---
-interface ListingCheckboxProps {
+// --- DEĞİŞİKLİK 1: Checkbox yerine Dropdown Bileşeni ---
+interface ListingDropdownProps {
   rowId: string;
   initialValue: boolean;
   currentUser: string;
 }
-const ListingCheckbox = memo(({ rowId, initialValue, currentUser }: ListingCheckboxProps) => {
-  const [isChecked, setIsChecked] = useState(initialValue);
+const ListingDropdown = memo(({ rowId, initialValue, currentUser }: ListingDropdownProps) => {
+  const [currentValue, setCurrentValue] = useState(initialValue);
   const [isLoading, setIsLoading] = useState(false);
-  useEffect(() => { setIsChecked(initialValue); }, [initialValue]);
-  const handleChange = async () => {
-    if (!currentUser) { alert('Lütfen işlem yapmadan önce "İnceleyen Kişi" seçimi yapın.'); return; }
+
+  useEffect(() => { 
+    setCurrentValue(initialValue); 
+  }, [initialValue]);
+
+  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (!currentUser) { 
+      alert('Lütfen işlem yapmadan önce "İnceleyen Kişi" seçimi yapın.'); 
+      // Seçimi eski haline getir
+      e.target.value = String(currentValue);
+      return; 
+    }
+    
+    const newValueString = e.target.value;
+    // "true" -> true, "false" -> false
+    const newValueBoolean = newValueString === 'true'; 
+
     setIsLoading(true);
-    const newValue = !isChecked;
-    setIsChecked(newValue);
+    setCurrentValue(newValueBoolean); // Optimistic update
+
     const { error } = await supabase
       .from('scraped_data')
-      .update({ listedurum: newValue, inceleyen: currentUser })
+      .update({ listedurum: newValueBoolean, inceleyen: currentUser })
       .eq('id', rowId);
-    if (error) { console.error('Update error:', error); setIsChecked(!newValue); alert(`Hata: ${error.message}`); }
+      
+    if (error) { 
+      console.error('Update error:', error); 
+      setCurrentValue(!newValueBoolean); // Revert on error
+      alert(`Hata: ${error.message}`); 
+    }
     setIsLoading(false);
   };
+
+  // boolean (true) değerini string ("true") değere çeviririz
+  const selectValue = String(currentValue);
+
   return (
     <div className="flex items-center justify-center">
       {isLoading ? (<Loader2 className="w-4 h-4 animate-spin text-blue-500" />) : (
-        <input
-          type="checkbox" checked={isChecked} onChange={handleChange} disabled={!currentUser} 
-          className={`w-5 h-5 rounded text-blue-600 focus:ring-blue-500 ${!currentUser ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-          title={!currentUser ? 'İşlem yapmak için inceleyen kişi seçmelisiniz' : (isChecked ? 'Listeden çıkar' : 'Listeye ekle')}
-        />
+        <select
+          value={selectValue} // "true" veya "false"
+          onChange={handleChange}
+          disabled={!currentUser}
+          className={`w-24 px-2 py-1 border border-gray-300 rounded-md text-sm font-medium ${
+            !currentUser ? 'cursor-not-allowed opacity-50 bg-gray-100' : 'cursor-pointer'
+          } ${
+            // Duruma göre renklendirme
+            selectValue === 'true' 
+              ? 'bg-green-100 text-green-800 border-green-200' 
+              : 'bg-red-100 text-red-800 border-red-200'
+          }`}
+          title={!currentUser ? 'İşlem yapmak için inceleyen kişi seçmelisiniz' : 'Listeleme durumunu değiştir'}
+        >
+          <option value="true">Evet</option>
+          <option value="false">Hayır</option>
+        </select>
       )}
     </div>
   );
 });
+// --- DEĞİŞİKLİK 1 SONU ---
+
 
 // --- ImageModal Bileşeni (Değişiklik yok) ---
 interface ImageModalProps { imageUrl: string; onClose: () => void; }
@@ -430,7 +467,7 @@ const DataTable = memo(({
           <option value="closed">Closed</option>
         </select>
         
-        {/* === DEĞİŞİKLİK 1: Listelensin mi? Filtresi === */}
+        {/* === Listelensin mi? Filtresi (Evet/Hayır) === */}
         <select
           value={localFilterListedurum}
           onChange={(e) => setLocalFilterListedurum(e.target.value as 'all' | 'true' | 'false')}
@@ -440,7 +477,7 @@ const DataTable = memo(({
           <option value="true">Evet</option>
           <option value="false">Hayır</option>
         </select>
-        {/* === DEĞİŞİKLİK 1 SONU === */}
+        {/* === Filtre SONU === */}
         
         <select value={localFilterInceleyen} onChange={(e) => setLocalFilterInceleyen(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
           <option value="all">Tüm İnceleyenler</option>
@@ -594,11 +631,19 @@ const DataTable = memo(({
                     {/* --- GÜNCELLEME SONU --- */}
                     
                     {visibleColumns.includes('inceleyen') && <td className={`${tdCell} whitespace-nowrap`}>{row.inceleyen || '-'}</td>}
+                    
+                    {/* --- DEĞİŞİKLİK 3: Checkbox yerine Dropdown kullanılır --- */}
                     {visibleColumns.includes('listedurum') && (
                       <td className={`${tdCell} text-center`}>
-                        <ListingCheckbox rowId={row.id} initialValue={row.listedurum} currentUser={currentUser} />
+                        <ListingDropdown 
+                          rowId={row.id} 
+                          initialValue={row.listedurum} 
+                          currentUser={currentUser} 
+                        />
                       </td>
                     )}
+                    {/* --- DEĞİŞİKLİK 3 SONU --- */}
+                    
                     {visibleColumns.includes('pazar') && <td className={`${tdCell} whitespace-nowrap`}>{row.pazar || '-'}</td>}
                   </tr>
                 ))}
