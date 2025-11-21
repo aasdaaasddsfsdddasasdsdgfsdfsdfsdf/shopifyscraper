@@ -20,9 +20,10 @@ import {
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// export kaldırıldı
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// SABİT LİSTE - GÜNCELLENDİ: Yeni isimler eklendi
+// SABİT LİSTE
 const REVIEWERS = ['Efkan', 'Mert Tufan', 'Furkan', 'Simay', 'Talha', 'Selçuk', 'Gürkan', 'Sefa'];
 
 // --- ScrapedData arayüzü ---
@@ -94,7 +95,8 @@ function downloadFile(content: string, filename: string, mimeType: string): void
   URL.revokeObjectURL(url);
 }
 
-export function exportToCSV(data: ScrapedData[]): void {
+// export kaldırıldı
+function exportToCSV(data: ScrapedData[]): void {
   if (data.length === 0) return;
   const headers = [
     'date', 'domain', 'niche', 'ciro', 'trafik', 'product_count', 'app', 
@@ -118,7 +120,8 @@ export function exportToCSV(data: ScrapedData[]): void {
   downloadFile(csvContent, 'scraped-data.csv', 'text/csv');
 }
 
-export function exportToJSON(data: ScrapedData[]): void {
+// export kaldırıldı
+function exportToJSON(data: ScrapedData[]): void {
   const jsonData = data.map(row => ({
     date: row.date, domain: row.domain, niche: row.niche, ciro: row.ciro,
     trafik: row.trafik, product_count: row.product_count, app: row.app,
@@ -153,7 +156,7 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceley
     setCurrentValue(initialValue); 
   }, [initialValue]);
   
-  constDVValueAsString = (val: boolean | null): string => {
+  const getValueAsString = (val: boolean | null): string => {
     if (val === true) return "true";
     if (val === false) return "false";
     return "unset"; 
@@ -378,7 +381,7 @@ interface DataTableProps {
   setFilterLanguage: (value: string) => void;
   filterTitle: string;
   setFilterTitle: (value: string) => void;
-  filterListedurum: 'all' | 'true' | 'false' | 'null'; // GÜNCELLENDİ: null eklendi
+  filterListedurum: 'all' | 'true' | 'false' | 'null';
   setFilterListedurum: (value: 'all' | 'true' | 'false' | 'null') => void;
   filterNiche: string;
   setFilterNiche: (value: string) => void;
@@ -394,8 +397,8 @@ interface DataTableProps {
   setFilterTheme: (value: string) => void;
   filterInceleyen: 'all' | string;
   setFilterInceleyen: (value: 'all' | string) => void;
-  filterPazar: string; // YENİ
-  setFilterPazar: (value: string) => void; // YENİ
+  filterPazar: string;
+  setFilterPazar: (value: string) => void;
 }
 
 const DataTable = memo(({
@@ -476,7 +479,7 @@ const DataTable = memo(({
   const [localFilterApp, setLocalFilterApp] = useState(filterProps.filterApp);
   const [localFilterTheme, setLocalFilterTheme] = useState(filterProps.filterTheme);
   const [localFilterInceleyen, setLocalFilterInceleyen] = useState(filterProps.filterInceleyen);
-  const [localFilterPazar, setLocalFilterPazar] = useState(filterProps.filterPazar); // YENİ
+  const [localFilterPazar, setLocalFilterPazar] = useState(filterProps.filterPazar);
 
   const handleFilterApply = () => {
     filterProps.setFilterDomain(localFilterDomain);
@@ -492,7 +495,7 @@ const DataTable = memo(({
     filterProps.setFilterApp(localFilterApp);
     filterProps.setFilterTheme(localFilterTheme);
     filterProps.setFilterInceleyen(localFilterInceleyen);
-    filterProps.setFilterPazar(localFilterPazar); // YENİ
+    filterProps.setFilterPazar(localFilterPazar);
   };
 
   const handleFilterClear = () => {
@@ -523,7 +526,7 @@ const DataTable = memo(({
     setLocalFilterApp(filterProps.filterApp);
     setLocalFilterTheme(filterProps.filterTheme);
     setLocalFilterInceleyen(filterProps.filterInceleyen);
-    setLocalFilterPazar(filterProps.filterPazar); // YENİ
+    setLocalFilterPazar(filterProps.filterPazar);
   }, [
       filterProps.filterDomain, filterProps.filterStatus,
       filterProps.filterCurrency, filterProps.filterLanguage, filterProps.filterTitle,
@@ -598,8 +601,6 @@ const DataTable = memo(({
       {/* Filtre Inputları */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         
-        {/* Genel arama inputu kaldırıldı */}
-
         <input type="text" placeholder="Filtrele: Pazar..." value={localFilterPazar} onChange={(e) => setLocalFilterPazar(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: Domain..." value={localFilterDomain} onChange={(e) => setLocalFilterDomain(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: Ürün Başlığı..." value={localFilterTitle} onChange={(e) => setLocalFilterTitle(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
