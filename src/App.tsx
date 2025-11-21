@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { 
-  Database, UserCheck, Loader2, 
-  ChevronLeft, ChevronRight, Search, Filter, 
+  Database, Loader2, 
+  ChevronLeft, ChevronRight, Filter, 
   ExternalLink, Settings2, X,
   CheckSquare,
   DollarSign, 
   Euro, 
-  Briefcase, // Briefcase (TRY için jenerik ikon)
-  ChevronUp, // Sıralama için eklendi
-  ChevronDown, // Sıralama için eklendi
-  ChevronsLeft, // Sayfalandırma için eklendi
-  ChevronsRight // Sayfalandırma için eklendi
+  Briefcase,
+  ChevronUp, 
+  ChevronDown, 
+  ChevronsLeft, 
+  ChevronsRight 
 } from 'lucide-react';
 
 // =================================================================================
@@ -22,10 +22,10 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// SABİT LİSTE
-const REVIEWERS = ['Efkan', 'Mert Tufan', 'Furkan', 'Simay','Talha'];
+// SABİT LİSTE - GÜNCELLENDİ: Yeni isimler eklendi
+const REVIEWERS = ['Efkan', 'Mert Tufan', 'Furkan', 'Simay', 'Talha', 'Selçuk', 'Gürkan', 'Sefa'];
 
-// --- GÜNCELLENDİ: Yeni şemaya göre ScrapedData arayüzü ---
+// --- ScrapedData arayüzü ---
 export interface ScrapedData {
   id: string;
   date: string;
@@ -45,7 +45,6 @@ export interface ScrapedData {
   app: string | null;
   theme: string | null;
 
-  // --- YENİ ŞEMA SÜTUNLARI ---
   "Durum": string | null; 
   title: string | null; 
   product_error: string | null;
@@ -55,7 +54,6 @@ export interface ScrapedData {
   
   pazar: string | null;
   
-  // ciro_numeric'i de ekleyelim (opsiyonel ama iyi bir pratik)
   ciro_numeric?: number | null; 
 }
 
@@ -71,9 +69,8 @@ interface ReviewerStat {
   count: number;
 }
 
-
 // =================================================================================
-// 2. EXPORT FONKSİYONLARI (KODDA KULLANILMIYOR AMA SİLİNMEDİ)
+// 2. EXPORT FONKSİYONLARI
 // =================================================================================
 
 function escapeCSV(value: string | null | undefined | number | boolean): string {
@@ -97,7 +94,6 @@ function downloadFile(content: string, filename: string, mimeType: string): void
   URL.revokeObjectURL(url);
 }
 
-// ... exportToCSV ve exportToJSON fonksiyonları (değişiklik yok) ...
 export function exportToCSV(data: ScrapedData[]): void {
   if (data.length === 0) return;
   const headers = [
@@ -140,7 +136,7 @@ export function exportToJSON(data: ScrapedData[]): void {
 // 3. YARDIMCI BİLEŞENLER (COMPONENTS)
 // =================================================================================
 
-// --- ListingDropdown Bileşeni (Değişiklik yok) ---
+// --- ListingDropdown Bileşeni ---
 interface ListingDropdownProps {
   rowId: string;
   initialValue: boolean | null;
@@ -157,7 +153,7 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceley
     setCurrentValue(initialValue); 
   }, [initialValue]);
   
-  const getValueAsString = (val: boolean | null): string => {
+  constDVValueAsString = (val: boolean | null): string => {
     if (val === true) return "true";
     if (val === false) return "false";
     return "unset"; 
@@ -178,13 +174,13 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceley
     } else if (newValueString === "false") {
       newValue = false;
     } else {
-      newValue = null; // "Seçim Yapın" durumu
+      newValue = null;
     }
 
     setIsLoading(true);
-    setCurrentValue(newValue); // Optimistic UI (Dropdown'ı hemen güncelle)
+    setCurrentValue(newValue);
 
-    const isUnassigning = newValue === null; // Kullanıcı "Seçim Yapın" mı dedi?
+    const isUnassigning = newValue === null;
     const newInceleyen = isUnassigning ? null : currentUser;
 
     onOptimisticUpdate(rowId, newValue, newInceleyen);
@@ -196,7 +192,7 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceley
 
     let updateQuery = supabase
       .from('scraped_data')
-      .update(updateObject, { count: 'exact' }) // Etkilenen satır sayısını iste
+      .update(updateObject, { count: 'exact' })
       .eq('id', rowId);
 
     if (initialInceleyen === null) {
@@ -210,18 +206,17 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceley
     if (error) { 
       console.error('Update error:', error); 
       onOptimisticUpdate(rowId, initialValue, initialInceleyen);
-      setCurrentValue(initialValue); // Dropdown'ı geri al
+      setCurrentValue(initialValue);
       alert(`Hata: ${error.message}`); 
     } else if (count === 0 && !error) {
       console.warn('Update failed: Optimistic lock violation.');
       onOptimisticUpdate(rowId, initialValue, initialInceleyen);
-      setCurrentValue(initialValue); // Dropdown'ı geri al
+      setCurrentValue(initialValue);
       
       alert('Hata: Bu kaydın durumu siz işlem yapmadan önce başka bir kullanıcı tarafından değiştirildi. Sayfa güncelleniyor.');
     }
     setIsLoading(false);
   };
-
 
   const selectValue = getValueAsString(currentValue);
 
@@ -252,8 +247,7 @@ const ListingDropdown = memo(({ rowId, initialValue, currentUser, initialInceley
   );
 });
 
-
-// --- ImageModal Bileşeni (Değişiklik yok) ---
+// --- ImageModal Bileşeni ---
 interface ImageModalProps { imageUrl: string; onClose: () => void; }
 const ImageModal = memo(({ imageUrl, onClose }: ImageModalProps) => {
   return (
@@ -268,7 +262,7 @@ const ImageModal = memo(({ imageUrl, onClose }: ImageModalProps) => {
   );
 });
 
-// --- StatsCard component (Değişiklik yok) ---
+// --- StatsCard component ---
 interface StatsCardProps {
   title: string;
   value: number;
@@ -332,8 +326,7 @@ const StatsCards = ({ stats, isLoading }: StatsCardsProps) => (
   </div>
 );
 
-
-// --- DataTable Bileşeni (Değişiklik yok) ---
+// --- DataTable Bileşeni ---
 const ALL_COLUMNS = [
   { key: 'date', label: 'Date', defaultVisible: false, sortable: true },
   { key: 'domain', label: 'Domain', defaultVisible: true, sortable: true },
@@ -344,12 +337,11 @@ const ALL_COLUMNS = [
   { key: 'app', label: 'App', defaultVisible: false, sortable: true },
   { key: 'theme', label: 'Theme', defaultVisible: false, sortable: true },
   { key: 'adlink', label: 'Ad Link', defaultVisible: true, sortable: true },
-  // <<< DEĞİŞİKLİK 2: 'Currency' sütunu varsayılan olarak görünür yapıldı (false -> true)
   { key: 'Currency', label: 'Currency', defaultVisible: true, sortable: true },
   { key: 'language', label: 'Language', defaultVisible: false, sortable: true },
   { key: 'Durum', label: 'Status', defaultVisible: false, sortable: true },
   { key: 'title', label: 'Product Title', defaultVisible: true, sortable: true },
-  { key: 'images', label: 'Products', defaultVisible: true, sortable: false }, // Not sortable
+  { key: 'images', label: 'Products', defaultVisible: true, sortable: false },
   { key: 'inceleyen', label: 'İnceleyen', defaultVisible: true, sortable: true },
   { key: 'listedurum', label: 'Listelensin mi?', defaultVisible: true, sortable: true },
   { key: 'pazar', label: 'Pazar', defaultVisible: false, sortable: true },
@@ -376,8 +368,6 @@ interface DataTableProps {
   onSortChange: (columnKey: string) => void;
 
   // Filtreler ve Setter'ları
-  searchTerm: string;
-  setSearchTerm: (value: string) => void;
   filterDomain: string;
   setFilterDomain: (value: string) => void;
   filterStatus: string; 
@@ -388,8 +378,8 @@ interface DataTableProps {
   setFilterLanguage: (value: string) => void;
   filterTitle: string;
   setFilterTitle: (value: string) => void;
-  filterListedurum: 'all' | 'true' | 'false';
-  setFilterListedurum: (value: 'all' | 'true' | 'false') => void;
+  filterListedurum: 'all' | 'true' | 'false' | 'null'; // GÜNCELLENDİ: null eklendi
+  setFilterListedurum: (value: 'all' | 'true' | 'false' | 'null') => void;
   filterNiche: string;
   setFilterNiche: (value: string) => void;
   filterCiro: string;
@@ -404,6 +394,8 @@ interface DataTableProps {
   setFilterTheme: (value: string) => void;
   filterInceleyen: 'all' | string;
   setFilterInceleyen: (value: 'all' | string) => void;
+  filterPazar: string; // YENİ
+  setFilterPazar: (value: string) => void; // YENİ
 }
 
 const DataTable = memo(({
@@ -464,14 +456,13 @@ const DataTable = memo(({
   const handlePageInputBlur = () => {
      const pageNum = parseInt(pageInput, 10);
      if (isNaN(pageNum)) {
-         setPageInput(String(currentPage)); // Geçersizse sıfırla
+         setPageInput(String(currentPage)); 
      } else {
-         goToPage(pageNum); // Sayfaya git (sınırlar içinde)
+         goToPage(pageNum); 
      }
   };
 
-
-  const [localSearchTerm, setLocalSearchTerm] = useState(filterProps.searchTerm);
+  // Local States for filters
   const [localFilterDomain, setLocalFilterDomain] = useState(filterProps.filterDomain);
   const [localFilterStatus, setLocalFilterStatus] = useState(filterProps.filterStatus);
   const [localFilterCurrency, setLocalFilterCurrency] = useState(filterProps.filterCurrency);
@@ -485,9 +476,9 @@ const DataTable = memo(({
   const [localFilterApp, setLocalFilterApp] = useState(filterProps.filterApp);
   const [localFilterTheme, setLocalFilterTheme] = useState(filterProps.filterTheme);
   const [localFilterInceleyen, setLocalFilterInceleyen] = useState(filterProps.filterInceleyen);
+  const [localFilterPazar, setLocalFilterPazar] = useState(filterProps.filterPazar); // YENİ
 
   const handleFilterApply = () => {
-    filterProps.setSearchTerm(localSearchTerm);
     filterProps.setFilterDomain(localFilterDomain);
     filterProps.setFilterStatus(localFilterStatus);
     filterProps.setFilterCurrency(localFilterCurrency);
@@ -501,24 +492,24 @@ const DataTable = memo(({
     filterProps.setFilterApp(localFilterApp);
     filterProps.setFilterTheme(localFilterTheme);
     filterProps.setFilterInceleyen(localFilterInceleyen);
+    filterProps.setFilterPazar(localFilterPazar); // YENİ
   };
 
   const handleFilterClear = () => {
-    setLocalSearchTerm(''); setLocalFilterDomain(''); setLocalFilterStatus('all');
+    setLocalFilterDomain(''); setLocalFilterStatus('all');
     setLocalFilterCurrency(''); setLocalFilterLanguage(''); setLocalFilterTitle('');
     setLocalFilterListedurum('all'); setLocalFilterNiche(''); setLocalFilterCiro('');
     setLocalFilterTrafik(''); setLocalFilterProductCount(''); setLocalFilterApp('');
-    setLocalFilterTheme(''); setLocalFilterInceleyen('all');
+    setLocalFilterTheme(''); setLocalFilterInceleyen('all'); setLocalFilterPazar('');
 
-    filterProps.setSearchTerm(''); filterProps.setFilterDomain(''); filterProps.setFilterStatus('all');
+    filterProps.setFilterDomain(''); filterProps.setFilterStatus('all');
     filterProps.setFilterCurrency(''); filterProps.setFilterLanguage(''); filterProps.setFilterTitle('');
     filterProps.setFilterListedurum('all'); filterProps.setFilterNiche(''); filterProps.setFilterCiro('');
     filterProps.setFilterTrafik(''); filterProps.setFilterProductCount(''); filterProps.setFilterApp('');
-    filterProps.setFilterTheme(''); filterProps.setFilterInceleyen('all');
+    filterProps.setFilterTheme(''); filterProps.setFilterInceleyen('all'); filterProps.setFilterPazar('');
   };
 
   useEffect(() => {
-    setLocalSearchTerm(filterProps.searchTerm);
     setLocalFilterDomain(filterProps.filterDomain);
     setLocalFilterStatus(filterProps.filterStatus);
     setLocalFilterCurrency(filterProps.filterCurrency);
@@ -532,12 +523,13 @@ const DataTable = memo(({
     setLocalFilterApp(filterProps.filterApp);
     setLocalFilterTheme(filterProps.filterTheme);
     setLocalFilterInceleyen(filterProps.filterInceleyen);
+    setLocalFilterPazar(filterProps.filterPazar); // YENİ
   }, [
-      filterProps.searchTerm, filterProps.filterDomain, filterProps.filterStatus,
+      filterProps.filterDomain, filterProps.filterStatus,
       filterProps.filterCurrency, filterProps.filterLanguage, filterProps.filterTitle,
       filterProps.filterListedurum, filterProps.filterNiche, filterProps.filterCiro,
       filterProps.filterTrafik, filterProps.filterProductCount, filterProps.filterApp,
-      filterProps.filterTheme, filterProps.filterInceleyen
+      filterProps.filterTheme, filterProps.filterInceleyen, filterProps.filterPazar
   ]); 
 
   const toggleColumn = (key: string) => {
@@ -556,7 +548,7 @@ const DataTable = memo(({
     return <ChevronDown className="w-4 h-4 text-blue-600" />;
   };
 
-  // --- filterControls (Değişiklik yok) ---
+  // --- filterControls ---
   const filterControls = (
     <div className="p-4 border-b border-gray-200">
       <div className="flex justify-between items-center mb-4">
@@ -564,7 +556,6 @@ const DataTable = memo(({
           Veri Sayısı: {totalRecords.toLocaleString()}
         </h3>
         <div className="flex gap-2">
-          {/* Sütun Yönetimi */}
           <div className="relative">
             <button
               onClick={() => setShowColumnManager(!showColumnManager)}
@@ -606,23 +597,18 @@ const DataTable = memo(({
       
       {/* Filtre Inputları */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-        <div className="relative md:col-span-2">
-          <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Genel Arama (Domain, Başlık, Niche, App...)"
-            value={localSearchTerm}
-            onChange={(e) => setLocalSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
+        
+        {/* Genel arama inputu kaldırıldı */}
+
+        <input type="text" placeholder="Filtrele: Pazar..." value={localFilterPazar} onChange={(e) => setLocalFilterPazar(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        <input type="text" placeholder="Filtrele: Domain..." value={localFilterDomain} onChange={(e) => setLocalFilterDomain(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        <input type="text" placeholder="Filtrele: Ürün Başlığı..." value={localFilterTitle} onChange={(e) => setLocalFilterTitle(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+
         <input type="text" placeholder="Filtrele: Niche..." value={localFilterNiche} onChange={(e) => setLocalFilterNiche(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: Ciro..." value={localFilterCiro} onChange={(e) => setLocalFilterCiro(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: Trafik..." value={localFilterTrafik} onChange={(e) => setLocalFilterTrafik(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="number" placeholder="Filtrele: Min. Ürün Sayısı" value={localFilterProductCount} onChange={(e) => setLocalFilterProductCount(e.target.value === '' ? '' : parseInt(e.target.value))} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         
-        <input type="text" placeholder="Filtrele: Domain..." value={localFilterDomain} onChange={(e) => setLocalFilterDomain(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-        <input type="text" placeholder="Filtrele: Ürün Başlığı..." value={localFilterTitle} onChange={(e) => setLocalFilterTitle(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: App..." value={localFilterApp} onChange={(e) => setLocalFilterApp(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: Theme..." value={localFilterTheme} onChange={(e) => setLocalFilterTheme(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
         <input type="text" placeholder="Filtrele: Para Birimi..." value={localFilterCurrency} onChange={(e) => setLocalFilterCurrency(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
@@ -636,12 +622,13 @@ const DataTable = memo(({
         
         <select
           value={localFilterListedurum}
-          onChange={(e) => setLocalFilterListedurum(e.target.value as 'all' | 'true' | 'false')}
+          onChange={(e) => setLocalFilterListedurum(e.target.value as 'all' | 'true' | 'false' | 'null')}
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
           <option value="all">Tüm Listeleme</option>
-          <option value="true">Evet</option>
-          <option value="false">Hayır</option>
+          <option value="true">Evet (Listelenenler)</option>
+          <option value="false">Hayır (Listelenmeyenler)</option>
+          <option value="null">Boş Olanlar (Atanmamış)</option>
         </select>
         
         <select value={localFilterInceleyen} onChange={(e) => setLocalFilterInceleyen(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
@@ -717,7 +704,6 @@ const DataTable = memo(({
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {/* --- YENİ: Sıralanabilir Başlıklar --- */}
                   {visibleColumns.includes('date') && <th className={thSortableCell} onClick={() => onSortChange('date')}><div className="flex items-center gap-1">Date {getSortIcon('date')}</div></th>}
                   {visibleColumns.includes('domain') && <th className={thSortableCell} onClick={() => onSortChange('domain')}><div className="flex items-center gap-1">Domain {getSortIcon('domain')}</div></th>}
                   {visibleColumns.includes('niche') && <th className={thSortableCell} onClick={() => onSortChange('niche')}><div className="flex items-center gap-1">Niche {getSortIcon('niche')}</div></th>}
@@ -732,7 +718,7 @@ const DataTable = memo(({
                   {visibleColumns.includes('Durum') && <th className={thSortableCell} onClick={() => onSortChange('Durum')}><div className="flex items-center gap-1">Status {getSortIcon('Durum')}</div></th>}    
                   {visibleColumns.includes('title') && <th className={thSortableCell} onClick={() => onSortChange('title')}><div className="flex items-center gap-1">Product Title {getSortIcon('title')}</div></th>}  
                   
-                  {visibleColumns.includes('images') && <th className={thCell}>Products</th>} {/* Sıralanamaz */}
+                  {visibleColumns.includes('images') && <th className={thCell}>Products</th>} 
                   
                   {visibleColumns.includes('inceleyen') && <th className={thSortableCell} onClick={() => onSortChange('inceleyen')}><div className="flex items-center gap-1">İnceleyen {getSortIcon('inceleyen')}</div></th>}
                   {visibleColumns.includes('listedurum') && <th className={`${thSortableCell} text-center`} onClick={() => onSortChange('listedurum')}><div className="flex items-center justify-center gap-1">Listelensin mi? {getSortIcon('listedurum')}</div></th>}
@@ -904,11 +890,10 @@ const DataTable = memo(({
 
 
 // =================================================================================
-// 5. ANA APP BİLEŞENİ (GÜNCELLENDİ)
+// 5. ANA APP BİLEŞENİ
 // =================================================================================
 
 const ITEMS_PER_PAGE = 50;
-// REVIEWERS sabiti yukarı taşındı
 
 function App() {
   const [currentUser, setCurrentUser] = useState('');
@@ -919,24 +904,21 @@ function App() {
   const [totalRecords, setTotalRecords] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Stats State
   const [statsData, setStatsData] = useState<StatsData | null>(null);
   const [reviewerStats, setReviewerStats] = useState<ReviewerStat[]>([]); 
   const [isStatsLoading, setIsStatsLoading] = useState(true);
 
-  // --- YENİ: Sıralama State'i ---
-  // <<< DEĞİŞİKLİK 1: Varsayılan sıralama 'date' yerine 'ciro' yapıldı.
-  const [sortColumn, setSortColumn] = useState<string>('ciro'); // Varsayılan sıralama ciro oldu
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc'); // Varsayılan yön (desc = yüksekten düşüğe)
+  const [sortColumn, setSortColumn] = useState<string>('ciro'); 
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc'); 
 
-  // --- Filtre State'leri (Değişiklik yok) ---
-  const [searchTerm, setSearchTerm] = useState('');
+  // --- Filtre State'leri ---
+  // Genel arama (searchTerm) kaldırıldı
   const [filterDomain, setFilterDomain] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all'); 
   const [filterCurrency, setFilterCurrency] = useState('');
   const [filterLanguage, setFilterLanguage] = useState('');
   const [filterTitle, setFilterTitle] = useState('');
-  const [filterListedurum, setFilterListedurum] = useState<'all' | 'true' | 'false'>('all');
+  const [filterListedurum, setFilterListedurum] = useState<'all' | 'true' | 'false' | 'null'>('all'); // null eklendi
   const [filterNiche, setFilterNiche] = useState('');
   const [filterCiro, setFilterCiro] = useState('');
   const [filterTrafik, setFilterTrafik] = useState('');
@@ -944,10 +926,10 @@ function App() {
   const [filterApp, setFilterApp] = useState('');
   const [filterTheme, setFilterTheme] = useState('');
   const [filterInceleyen, setFilterInceleyen] = useState<'all' | string>('all');
+  const [filterPazar, setFilterPazar] = useState(''); // YENİ
 
   const totalPages = Math.ceil(totalRecords / ITEMS_PER_PAGE);
 
-  // İstatistik Yükleme Fonksiyonu (Değişiklik yok)
   const loadStatsData = useCallback(async () => {
     setIsStatsLoading(true);
     try {
@@ -994,7 +976,6 @@ function App() {
   }, []); 
 
 
-  // --- Veri Yükleme Fonksiyonu (CİRO SIRALAMASI GÜNCELLENDİ) ---
   const loadGridData = useCallback(async (page: number) => {
     setIsLoading(true);
     const offset = (page - 1) * ITEMS_PER_PAGE;
@@ -1009,12 +990,16 @@ function App() {
     if (filterCurrency) pageQuery = pageQuery.ilike('"Currency"', `%${filterCurrency}%`); 
     if (filterLanguage) pageQuery = pageQuery.ilike('language', `%${filterLanguage}%`);
     if (filterTitle) pageQuery = pageQuery.ilike('title', `%${filterTitle}%`); 
+    if (filterPazar) pageQuery = pageQuery.ilike('pazar', `%${filterPazar}%`); // YENİ
     
+    // GÜNCELLENMİŞ LİSTELEME MANTIĞI
     if (filterListedurum !== 'all') {
       if (filterListedurum === 'true') {
         pageQuery = pageQuery.eq('listedurum', true);
-      } else {
-        pageQuery = pageQuery.or('listedurum.is.false,listedurum.is.null');
+      } else if (filterListedurum === 'false') {
+        pageQuery = pageQuery.eq('listedurum', false);
+      } else if (filterListedurum === 'null') {
+        pageQuery = pageQuery.is('listedurum', null);
       }
     }
     
@@ -1028,39 +1013,28 @@ function App() {
     if (filterTheme) pageQuery = pageQuery.ilike('theme', `%${filterTheme}%`);
     if (filterInceleyen !== 'all') pageQuery = pageQuery.eq('inceleyen', filterInceleyen);
 
-    if (searchTerm) {
-      const searchConditions = `domain.ilike.%${searchTerm}%,title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,"Currency".ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`;
-      pageQuery = pageQuery.or(searchConditions);
-    }
+    // Genel arama mantığı kaldırıldı
 
-    // --- YENİ: Dinamik Sıralama ---
     let primarySortColumn = sortColumn || 'date';
     let primaryAscending = sortDirection === 'asc';
-    if (sortColumn === null) { // Varsayılan duruma geri dön
+    if (sortColumn === null) { 
         primarySortColumn = 'date';
         primaryAscending = false;
     }
     
-    // <<< GÜNCELLEME: 'ciro' ise 'ciro_numeric' kullan >>>
     let dbSortColumn = primarySortColumn;
     if (primarySortColumn === 'ciro') {
         dbSortColumn = 'ciro_numeric';
     }
-    // <<< BİTTİ: GÜNCELLEME >>>
     
-    // Ana sıralamayı (dbSortColumn kullanarak) uygula
-    // 'nullsFirst: false' (veya nullsLast: true) eklemek iyi bir pratiktir, 
-    // böylece boş cirolar en sonda görünür.
     pageQuery = pageQuery.order(dbSortColumn, { 
       ascending: primaryAscending,
-      nullsFirst: false // NULL değerleri en sona atar
+      nullsFirst: false 
     });
     
-    // Tutarlılık için ikincil bir sıralama ekle
     if (primarySortColumn !== 'domain') {
         pageQuery = pageQuery.order('domain', { ascending: true });
     }
-    // --- BİTTİ: Dinamik Sıralama ---
 
     const { data: pageData, error: dataError, count } = await pageQuery
       .range(offset, offset + ITEMS_PER_PAGE - 1);
@@ -1079,17 +1053,21 @@ function App() {
       .from('scraped_data')
       .select('*');
 
-    // Filtreleri `allDataQuery`'ye de uygula
     if (filterDomain) allDataQuery = allDataQuery.ilike('domain', `%${filterDomain}%`);
     if (filterStatus !== 'all') allDataQuery = allDataQuery.eq('"Durum"', filterStatus);  
     if (filterCurrency) allDataQuery = allDataQuery.ilike('"Currency"', `%${filterCurrency}%`); 
     if (filterLanguage) allDataQuery = allDataQuery.ilike('language', `%${filterLanguage}%`);
     if (filterTitle) allDataQuery = allDataQuery.ilike('title', `%${filterTitle}%`); 
+    if (filterPazar) allDataQuery = allDataQuery.ilike('pazar', `%${filterPazar}%`); // YENİ
+
+    // GÜNCELLENMİŞ LİSTELEME MANTIĞI (EXPORT)
     if (filterListedurum !== 'all') {
-       if (filterListedurum === 'true') {
+      if (filterListedurum === 'true') {
         allDataQuery = allDataQuery.eq('listedurum', true);
-      } else {
-        allDataQuery = allDataQuery.or('listedurum.is.false,listedurum.is.null');
+      } else if (filterListedurum === 'false') {
+        allDataQuery = allDataQuery.eq('listedurum', false);
+      } else if (filterListedurum === 'null') {
+        allDataQuery = allDataQuery.is('listedurum', null);
       }
     }
     if (filterNiche) allDataQuery = allDataQuery.ilike('niche', `%${filterNiche}%`);
@@ -1102,12 +1080,6 @@ function App() {
     if (filterTheme) allDataQuery = allDataQuery.ilike('theme', `%${filterTheme}%`);
     if (filterInceleyen !== 'all') allDataQuery = allDataQuery.eq('inceleyen', filterInceleyen);
     
-    if (searchTerm) {
-      const searchConditions = `domain.ilike.%${searchTerm}%,title.ilike.%${searchTerm}%,date.ilike.%${searchTerm}%,"Currency".ilike.%${searchTerm}%,language.ilike.%${searchTerm}%,niche.ilike.%${searchTerm}%,app.ilike.%${searchTerm}%`; 
-      allDataQuery = allDataQuery.or(searchConditions);
-    }
-
-    // `allDataQuery` için de sıralamayı uygula (dbSortColumn zaten 'ciro_numeric' olarak düzeltildi)
     allDataQuery = allDataQuery.order(dbSortColumn, { 
       ascending: primaryAscending,
       nullsFirst: false 
@@ -1122,14 +1094,13 @@ function App() {
     setIsLoading(false);
 
   }, [
-    searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, 
+    filterDomain, filterStatus, filterCurrency, filterLanguage, 
     filterTitle, filterListedurum, filterNiche, filterCiro, filterTrafik, 
-    filterProductCount, filterApp, filterTheme, filterInceleyen,
-    sortColumn, sortDirection // Bağımlılıklara eklendi
+    filterProductCount, filterApp, filterTheme, filterInceleyen, filterPazar, // filterPazar eklendi, searchTerm silindi
+    sortColumn, sortDirection 
   ]); 
   
   
-  // Veritabanı Değişikliklerini Dinle (Realtime) (Değişiklik yok)
   useEffect(() => {
     const channel = supabase
       .channel('scraped-data-changes')
@@ -1161,14 +1132,12 @@ function App() {
   }, [loadGridData, currentPage, loadStatsData]); 
   
   
-  // İlk yükleme (Değişiklik yok)
   useEffect(() => {
     loadGridData(1);
     loadStatsData();
   }, [loadGridData, loadStatsData]); 
 
   
-  // Filtreler veya Sıralama değiştiğinde sayfayı sıfırla (Değişiklik yok)
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
@@ -1177,14 +1146,13 @@ function App() {
     loadStatsData(); 
     
   }, [
-    searchTerm, filterDomain, filterStatus, filterCurrency, filterLanguage, 
+    filterDomain, filterStatus, filterCurrency, filterLanguage, 
     filterTitle, filterListedurum, filterNiche, filterCiro, filterTrafik, 
-    filterProductCount, filterApp, filterTheme, filterInceleyen,
+    filterProductCount, filterApp, filterTheme, filterInceleyen, filterPazar, // Güncellendi
     sortColumn, sortDirection
   ]); 
 
   
-  // Sayfa değiştiğinde veri yükle (Değişiklik yok)
   useEffect(() => {
     loadGridData(currentPage);
   }, [currentPage, loadGridData]); 
@@ -1193,7 +1161,6 @@ function App() {
     setCurrentPage(page);
   }, []);
   
-  // Optimistic UI (Değişiklik yok)
   const handleOptimisticUpdate = useCallback((rowId: string, newListedurum: boolean | null, newInceleyen: string | null) => {
     setData(currentData => 
       currentData.map(row => 
@@ -1204,23 +1171,19 @@ function App() {
     );
   }, []); 
 
-  // --- Sıralama değiştirme handler'ı (CİRO İÇİN GÜNCELLENDİ) ---
   const handleSortChange = useCallback((columnKey: string) => {
-    // Tıklanan sütun zaten aktif sütunsa, yönü değiştir
     if (sortColumn === columnKey) {
       setSortDirection(prevDir => prevDir === 'asc' ? 'desc' : 'asc');
     } else {
-      // Değilse, yeni sütunu ayarla
       setSortColumn(columnKey);
       
-      // <<< GÜNCELLEME: Sayısal/Tarih sütunları için varsayılan 'desc' (büyükten küçüğe) olsun >>>
       if (['ciro', 'trafik', 'product_count', 'date'].includes(columnKey)) {
         setSortDirection('desc');
       } else {
-        setSortDirection('asc'); // Diğerleri (alfabetik) 'asc' başlasın
+        setSortDirection('asc'); 
       }
     }
-  }, [sortColumn]); // sortColumn bağımlılığı
+  }, [sortColumn]); 
 
 
   return (
@@ -1234,7 +1197,6 @@ function App() {
      
         </div>
 
-        {/* Veri Kartları */}
         <StatsCards stats={statsData} isLoading={isStatsLoading} />
 
         <DataTable
@@ -1258,8 +1220,7 @@ function App() {
           sortDirection={sortDirection}
           onSortChange={handleSortChange}
           
-          // ... (Tüm filtre prop'ları) ...
-          searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+          // Filtreler
           filterDomain={filterDomain} setFilterDomain={setFilterDomain}
           filterStatus={filterStatus} setFilterStatus={setFilterStatus}
           filterCurrency={filterCurrency} setFilterCurrency={setFilterCurrency}
@@ -1273,6 +1234,7 @@ function App() {
           filterApp={filterApp} setFilterApp={setFilterApp}
           filterTheme={filterTheme} setFilterTheme={setFilterTheme}
           filterInceleyen={filterInceleyen} setFilterInceleyen={setFilterInceleyen}
+          filterPazar={filterPazar} setFilterPazar={setFilterPazar} // YENİ
         />
       </div>
     </div>
